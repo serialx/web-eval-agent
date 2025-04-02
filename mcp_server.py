@@ -39,7 +39,6 @@ if api_key:
     is_valid = asyncio.run(validate_api_key(api_key))
     if not is_valid:
         print("Error: Invalid API key. Please provide a valid OperativeAI API key in the OPERATIVE_API_KEY environment variable.")
-        exit(1)
 else:
     print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
 
