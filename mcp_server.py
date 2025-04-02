@@ -27,22 +27,21 @@ mcp = FastMCP("Operative")
 class BrowserTools(str, Enum):
     WEB_APP_UX_EVALUATOR = "web_app_ux_evaluator"
 
-# Parse command line arguments
+# Parse command line arguments (keeping the parser for potential future arguments)
 parser = argparse.ArgumentParser(description='Run the MCP server with browser debugging capabilities')
-parser.add_argument('--api-key', type=str, help='API key for Anthropic Claude')
 args = parser.parse_args()
 
-# Store API key
-if args.api_key:
-    api_key = args.api_key
-    
-    # Validate the API key
+# Get API key from environment variable
+api_key = os.environ.get('OPERATIVE_API_KEY')
+
+# Validate the API key
+if api_key:
     is_valid = asyncio.run(validate_api_key(api_key))
     if not is_valid:
-        print("Error: Invalid API key. Please provide a valid OperativeAI API key.")
+        print("Error: Invalid API key. Please provide a valid OperativeAI API key in the OPERATIVE_API_KEY environment variable.")
         exit(1)
 else:
-    print("Error: No API key provided. Please provide an API key using --api-key.")
+    print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
     exit(1)
 
 @mcp.tool(name=BrowserTools.WEB_APP_UX_EVALUATOR)
