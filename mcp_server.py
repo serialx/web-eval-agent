@@ -42,7 +42,6 @@ if api_key:
         exit(1)
 else:
     print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
-    exit(1)
 
 @mcp.tool(name=BrowserTools.WEB_APP_UX_EVALUATOR)
 async def web_app_ux_evaluator(url: str, task: str, ctx: Context) -> list[TextContent]:
