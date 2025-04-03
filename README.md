@@ -20,7 +20,7 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 ```bash
 # 1. Get your API key at operative.sh
 # 2. Run the installer
-curl -LsSO https://operative.sh/webagentqa/install.sh | sh install.sh
+bash -i <(curl -LSf https://operative.sh/webagentqa/install.sh)
 # 3. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator
 ```
 
