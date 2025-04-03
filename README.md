@@ -1,6 +1,6 @@
-# 🚀 OPERATIVE WEBAGENTQA
+# 🚀 Operative.sh Web Agent QA MCP Server
 
-> *Let your code fix itself. You've got better things to do.*
+> *Let the code fix itself. You've got better things to do.*
 
 ## 🔥 Supercharge Your Debugging
 
@@ -10,7 +10,7 @@
 
 This weapon in your development arsenal transforms your Code IDE experience (Cline, Cursor):
 
-- 🌐 **Navigate your webapp** using BrowserUse (**now 2x FASTER!**)
+- 🌐 **Navigate your webapp** using BrowserUse (**now 2x FASTER when using our backend!**)
 - 📊 **Capture network traffic** - all requests/responses at your fingertips
 - 🚨 **Collect console errors** - nothing escapes detection
 - 🤖 **Autonomous debugging** - the agent fixes issues so you don't have to
