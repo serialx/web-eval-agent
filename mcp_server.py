@@ -9,6 +9,7 @@ from enum import Enum
 
 # Set the API key to a fake key to avoid error in backend
 os.environ["ANTHROPIC_API_KEY"] = 'not_a_real_key'
+os.environ["ANONYMIZED_TELEMETRY"] = 'false'
 
 # MCP imports
 from mcp.server.fastmcp import FastMCP, Context
