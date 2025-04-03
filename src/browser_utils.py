@@ -259,7 +259,8 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         logging.error(f"Task '{task}' failed", exc_info=True)
         # Return error and any logs captured so far
         error_message = f"Error during task execution: {e}"
-        return error_message, json.dumps(console_log_storage, indent=2), json.dumps(network_request_storage, indent=2)
+        # Convert deque objects to lists before JSON serialization
+        return error_message, json.dumps(list(console_log_storage), indent=2), json.dumps(list(network_request_storage), indent=2)
 
     finally:
         # --- Cleanup ---

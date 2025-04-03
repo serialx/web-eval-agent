@@ -24,6 +24,9 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libxkbcommon0 \
     libasound2 \
+    libcups2 \
+    libpango-1.0-0 \
+    libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file first for better caching
@@ -34,6 +37,7 @@ RUN pip install -r requirements.txt
 
 # Install playwright browsers
 RUN pip install playwright && playwright install chromium
+RUN playwright install-deps
 
 # Copy application code
 COPY . .
