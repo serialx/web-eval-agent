@@ -1,5 +1,4 @@
 ## Operative WebAgentQA 
-[![smithery badge](https://smithery.ai/badge/@Operative-Sh/web-agent-qa)](https://smithery.ai/server/@Operative-Sh/web-agent-qa)
 
 ## Quick Start Cursor Installation (macOS/Linux) 
 1. Get an api key [operative.sh](https://www.operative.sh) 
