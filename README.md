@@ -1,4 +1,4 @@
-# 🚀 Operative.sh Web Agent QA MCP Server
+# 🚀 Operative.sh Web QA Agent MCP Server
 
 > *Let the code fix itself. You've got better things to do.*
 
