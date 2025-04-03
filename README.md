@@ -1,6 +1,6 @@
 # 🚀 Operative.sh Web QA Agent MCP Server
 
-> *Let the code fix itself. You've got better things to do.*
+> *Let the code fix itself, you've got better things to do.*
 
 ## 🔥 Supercharge Your Debugging
 
