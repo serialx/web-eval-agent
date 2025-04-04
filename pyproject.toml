@@ -16,4 +16,4 @@ dependencies = [
 ]
 
 [project.scripts]
-web-ui-expert = "web_ui_expert.cli:main"
+web-ui-expert = "mcp_server:main"
