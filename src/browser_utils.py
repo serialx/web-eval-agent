@@ -242,9 +242,28 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         if final_network_requests: print("\nSample Network Requests (Last 5):\n" + "\n".join([f"- {r.get('method','?').ljust(4)} {r.get('response_status','???')} {r.get('url','?')}" for r in final_network_requests[-5:]]))
 
         # --- Prepare Combined Results ---
+        # Convert AgentHistoryList to a serializable format
+        if hasattr(agent_result, 'to_dict'):
+            serialized_result = agent_result.to_dict()
+        elif hasattr(agent_result, '__dict__'):
+            serialized_result = agent_result.__dict__
+        else:
+            # Fallback to string representation if no structured conversion is available
+            serialized_result = str(agent_result)
+            
+        # Ensure all objects in step_history are serializable
+        serialized_step_history = []
+        for step in step_history:
+            serialized_step = {
+                "step": step["step"],
+                "url": step["url"],
+                "output": str(step["output"]) if not isinstance(step["output"], (str, int, float, bool, type(None))) else step["output"]
+            }
+            serialized_step_history.append(serialized_step)
+            
         combined_result = {
-            "final_result": agent_result,
-            "step_history": step_history,
+            "final_result": serialized_result,
+            "step_history": serialized_step_history,
             "console_logs": final_console_logs,
             "network_requests": final_network_requests
         }
