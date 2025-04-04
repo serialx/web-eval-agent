@@ -13,7 +13,7 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 - 🌐 **Navigate your webapp** using BrowserUse (**now 2x FASTER when using our backend!**)
 - 📊 **Capture network traffic** - all requests/responses at your fingertips
 - 🚨 **Collect console errors** - nothing escapes detection
-- 🤖 **Autonomous debugging** - the agent fixes issues so you don't have to
+- 🤖 **Autonomous debugging** - the Cursor agent calls the Web QA Agent MCP server
 
 ## 🏁 Quick Start (macOS/Linux)
 
