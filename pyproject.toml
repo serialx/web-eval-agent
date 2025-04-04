@@ -14,3 +14,6 @@ dependencies = [
     "mcp>=1.6.0",
     "python-dotenv>=1.1.0",
 ]
+
+[project.scripts]
+web-ui-expert = "web_ui_expert.cli:main"
