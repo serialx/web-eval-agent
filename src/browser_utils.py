@@ -208,12 +208,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
         # --- Agent Callback ---
         async def state_callback(browser_state, agent_output, step_number):
-            if ctx: await ctx.report_progress(step_number, 10) # Report progress
-            # Debug printing (optional)
-            # print(f"\n--- Agent Step {step_number} ---")
-            # next_goal = "N/A"; if agent_output and agent_output.current_state: next_goal = agent_output.current_state.next_goal
-            # print(f"URL: {browser_state.url}, Goal: {next_goal}")
-            # print(f"Logs: {len(console_log_storage)}, Requests: {len(network_request_storage)}")
+            print(f"Agent Step {step_number} - {browser_state.url} - {agent_output}")
 
         # --- Initialize and Run Agent ---
         agent = Agent(
