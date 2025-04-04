@@ -207,8 +207,13 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             })
 
         # --- Agent Callback ---
+        step_history = []
         async def state_callback(browser_state, agent_output, step_number):
-            print(f"Agent Step {step_number} - {browser_state.url} - {agent_output}")
+            step_history.append({
+                "step": step_number,
+                "url": browser_state.url,
+                "output": agent_output
+            })
 
         # --- Initialize and Run Agent ---
         agent = Agent(
@@ -236,9 +241,17 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         if final_console_logs: print("\nSample Console Logs (Last 5):\n" + "\n".join([f"- {l.get('type','?').ljust(8)}: {l.get('text','?')[:150]}" for l in final_console_logs[-5:]]))
         if final_network_requests: print("\nSample Network Requests (Last 5):\n" + "\n".join([f"- {r.get('method','?').ljust(4)} {r.get('response_status','???')} {r.get('url','?')}" for r in final_network_requests[-5:]]))
 
+        # --- Prepare Combined Results ---
+        combined_result = {
+            "final_result": agent_result,
+            "step_history": step_history,
+            "console_logs": final_console_logs,
+            "network_requests": final_network_requests
+        }
+
         # --- Return Results ---
-        # Logs are already in global storage
-        return agent_result, json.dumps(final_console_logs, indent=2), json.dumps(final_network_requests, indent=2)
+        # Return both the final result and the step history along with logs
+        return combined_result, json.dumps(combined_result, indent=2), json.dumps(final_network_requests, indent=2)
 
     except Exception as e:
         print(f"\n--- Error During Browser Task Execution ---")
