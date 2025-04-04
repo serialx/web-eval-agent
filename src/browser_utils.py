@@ -225,19 +225,10 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         agent_instance = agent # Store globally if needed elsewhere
 
         print(f"Agent starting task: {task}")
-        agent_result_obj = await agent.run() # Agent returns AgentHistoryList
-
-        # --- Process Agent Result ---
-        final_text_result = "Agent finished." # Default message
-        if hasattr(agent_result_obj, 'all_results') and agent_result_obj.all_results:
-            last_action_result = agent_result_obj.all_results[-1]
-            if last_action_result.extracted_content:
-                 final_text_result = last_action_result.extracted_content
-            elif last_action_result.error:
-                 final_text_result = f"Agent ended with error: {last_action_result.error}"
+        agent_result = await agent.run() # Agent returns AgentHistoryList
 
         print("\n--- Agent Run Finished ---")
-        print(f"Agent Final Text Result: {final_text_result}")
+        print(f"Agent Final Text Result: {agent_result}")
 
         # --- Final Log Summary ---
         print("\n--- Final Log Summary ---")
@@ -252,7 +243,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
         # --- Return Results ---
         # Logs are already in global storage
-        return final_text_result, json.dumps(final_console_logs, indent=2), json.dumps(final_network_requests, indent=2)
+        return agent_result, json.dumps(final_console_logs, indent=2), json.dumps(final_network_requests, indent=2)
 
     except Exception as e:
         print(f"\n--- Error During Browser Task Execution ---")
