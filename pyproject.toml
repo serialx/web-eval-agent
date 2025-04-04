@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-webagentqa = "webagentqa.mcp_server:main"
+webEvalAgent = "webEvalAgent.mcp_server:main"       
 
 [build-system]
 requires = ["setuptools"]
