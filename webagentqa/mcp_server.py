@@ -16,10 +16,10 @@ from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import TextContent
 
 # Import our modules
-from src.browser_manager import PlaywrightBrowserManager
-from src.browser_utils import cleanup_resources
-from src.api_utils import validate_api_key
-from src.tool_handlers import handle_web_app_ux_evaluation
+from webagentqa.src.browser_manager import PlaywrightBrowserManager
+from webagentqa.src.browser_utils import cleanup_resources
+from webagentqa.src.api_utils import validate_api_key
+from webagentqa.src.tool_handlers import handle_web_app_ux_evaluation
 
 # Create the MCP server
 mcp = FastMCP("Operative")
@@ -46,15 +46,15 @@ else:
 @mcp.tool(name=BrowserTools.WEB_APP_UX_EVALUATOR)
 async def web_app_ux_evaluator(url: str, task: str, ctx: Context) -> list[TextContent]:
     """Evaluate the user experience of a web application.
-    
+
     This tool allows the AI to assess the quality of user experience and interface design
     of a web application by performing specific tasks and analyzing the interaction flow.
-    
+
     Args:
         url: Required. The URL of the web application to evaluate
-        task: Required. The specific UX/UI aspect to test (e.g., "test the checkout flow", 
+        task: Required. The specific UX/UI aspect to test (e.g., "test the checkout flow",
              "evaluate the navigation menu usability", "check form validation feedback")
-    
+
     Returns:
         list[TextContent]: A detailed evaluation of the web application's UX/UI, including
                          observations, issues found, and recommendations for improvement
@@ -64,8 +64,8 @@ async def web_app_ux_evaluator(url: str, task: str, ctx: Context) -> list[TextCo
         tool_call_id = str(uuid.uuid4())
         print(f"Generated new tool_call_id for web_app_ux_evaluator: {tool_call_id}")
         return await handle_web_app_ux_evaluation(
-            {"url": url, "task": task, "tool_call_id": tool_call_id}, 
-            ctx, 
+            {"url": url, "task": task, "tool_call_id": tool_call_id},
+            ctx,
             api_key
         )
     except Exception as e:
@@ -82,3 +82,11 @@ if __name__ == "__main__":
     finally:
         # Ensure resources are cleaned up
         asyncio.run(cleanup_resources())
+
+def main():
+     try:
+         # Run the FastMCP server
+         mcp.run(transport='stdio')
+     finally:
+         # Ensure resources are cleaned up
+         asyncio.run(cleanup_resources())

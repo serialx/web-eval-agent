@@ -1163,7 +1163,7 @@ wheels = [
 [[package]]
 name = "web-ui-expert"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "browser-use" },
     { name = "google-genai" },
@@ -1177,7 +1177,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "browser-use", specifier = ">=0.1.40" },
+    { name = "browser-use", specifier = "==0.1.40" },
     { name = "google-genai", specifier = ">=1.7.0" },
     { name = "google-generativeai", specifier = ">=0.8.4" },
     { name = "langchain", specifier = ">=0.3.21" },

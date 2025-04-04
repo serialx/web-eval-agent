@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "browser-use>=0.1.40",
+    "browser-use==0.1.40",
     "google-genai>=1.7.0",
     "google-generativeai>=0.8.4",
     "langchain>=0.3.21",
@@ -14,3 +14,10 @@ dependencies = [
     "mcp>=1.6.0",
     "python-dotenv>=1.1.0",
 ]
+
+[project.scripts]
+webagentqa = "webagentqa.mcp_server:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
