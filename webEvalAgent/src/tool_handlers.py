@@ -11,11 +11,11 @@ from mcp.server.fastmcp import Context
 from mcp.types import TextContent
 
 # Import the manager directly
-from webagentqa.src.browser_manager import PlaywrightBrowserManager
+from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
 # Only import run_browser_task from browser_utils
-from webagentqa.src.browser_utils import run_browser_task
+from webEvalAgent.src.browser_utils import run_browser_task
 # Import your prompt function
-from webagentqa.src.prompts import get_ux_evaluation_prompt
+from webEvalAgent.src.prompts import get_ux_evaluation_prompt
 
 # Function to get the singleton browser manager instance
 def get_browser_manager() -> PlaywrightBrowserManager:

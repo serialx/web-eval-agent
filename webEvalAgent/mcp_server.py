@@ -16,10 +16,10 @@ from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import TextContent
 
 # Import our modules
-from webagentqa.src.browser_manager import PlaywrightBrowserManager
-from webagentqa.src.browser_utils import cleanup_resources
-from webagentqa.src.api_utils import validate_api_key
-from webagentqa.src.tool_handlers import handle_web_app_ux_evaluation
+from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
+from webEvalAgent.src.browser_utils import cleanup_resources
+from webEvalAgent.src.api_utils import validate_api_key
+from webEvalAgent.src.tool_handlers import handle_web_app_ux_evaluation
 
 # Create the MCP server
 mcp = FastMCP("Operative")
