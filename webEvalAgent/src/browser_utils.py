@@ -228,7 +228,8 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         agent_result = await agent.run() # Agent returns AgentHistoryList
 
         print("\n--- Agent Run Finished ---")
-        print(f"Agent Final Text Result: {agent_result}")
+        for r in step_history:
+            print(f"Step {r['step']}: {r['url']} - {r['output']}")
 
         # --- Final Log Summary ---
         print("\n--- Final Log Summary ---")
@@ -243,13 +244,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
         # --- Prepare Combined Results ---
         # Convert AgentHistoryList to a serializable format
-        if hasattr(agent_result, 'to_dict'):
-            serialized_result = agent_result.to_dict()
-        elif hasattr(agent_result, '__dict__'):
-            serialized_result = agent_result.__dict__
-        else:
-            # Fallback to string representation if no structured conversion is available
-            serialized_result = str(agent_result)
+        serialized_result = str(agent_result)
             
         # Ensure all objects in step_history are serializable
         serialized_step_history = []
