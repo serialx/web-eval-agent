@@ -29,7 +29,9 @@ bash -i <(curl -LSf https://operative.sh/webevalqa/install.sh)
 ```
 
 ## Install in Cursor Agent with Single Command
-```API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agent"]={"command":"uvx","args":["--from","git+https://github.com/Operative-Sh/web-eval-agent.git","webEvalAgent"],"env":{"OPERATIVE_API_KEY":$k}}' ~/.cursor/mcp.json > ~/.cursor/mcp.json.tmp && mv ~/.cursor/mcp.json.tmp ~/.cursor/mcp.json```
+```bash
+API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agent"]={"command":"uvx","args":["--from","git+https://github.com/Operative-Sh/web-eval-agent.git","webEvalAgent"],"env":{"OPERATIVE_API_KEY":$k}}' ~/.cursor/mcp.json > ~/.cursor/mcp.json.tmp && mv ~/.cursor/mcp.json.tmp ~/.cursor/mcp.json
+```
 
 
 ## Windows Installation (Cline) 
