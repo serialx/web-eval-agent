@@ -33,8 +33,28 @@ bash -i <(curl -LSf https://operative.sh/webevalqa/install.sh)
 API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agent"]={"command":"uvx","args":["--from","git+https://github.com/Operative-Sh/web-eval-agent.git","webEvalAgent"],"env":{"OPERATIVE_API_KEY":$k}}' ~/.cursor/mcp.json > ~/.cursor/mcp.json.tmp && mv ~/.cursor/mcp.json.tmp ~/.cursor/mcp.json
 ```
 
+## Manual JSON Installation 
 
-## Windows Installation (Cline) 
+```json
+"web-eval-agent": {
+  "command": "uvx",
+  "args": [
+    "--from",
+    "git+https://github.com/Operative-Sh/web-eval-agent.git",
+    "webEvalAgent"
+  ],
+  "env": {
+    "OPERATIVE_API_KEY": "YOUR_API_KEY"
+  }
+}
+```
+
+
+
+
+
+
+## Manual Windows Installation (Cline) 
 ```bash
 # 1. Get your API key at operative.sh
 # 2. Install uv (curl -LsSf https://astral.sh/uv/install.sh | sh)
