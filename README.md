@@ -34,6 +34,8 @@ API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agen
 ```
 
 ## 🛠️ Manual JSON Installation 
+1. Run `uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git webEvalAgent` with no api key first since Cursor doesn't wait for our deps to download! 
+2. On startup, kill and then update your relevent MCP JSON: 
 
 ```json
 "web-eval-agent": {
