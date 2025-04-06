@@ -28,6 +28,14 @@ bash -i <(curl -LSf https://operative.sh/webevalqa/install.sh)
 # 3. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (may have to restart Cursor) 
 ```
 
+## Windows Installation (Cline) 
+```bash
+# 1. Get your API key at operative.sh
+# 2. Install uv (curl -LsSf https://astral.sh/uv/install.sh | sh)
+# 3. uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git playwright install
+# 4. Unleash the agent in Cline with web_app_ux_evaluator (may have to restart Cline) 
+```
+
 ---
 
 [operative.sh](https://www.operative.sh)
