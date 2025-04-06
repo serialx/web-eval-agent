@@ -28,12 +28,12 @@ bash -i <(curl -LSf https://operative.sh/webevalqa/install.sh)
 # 3. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (may have to restart Cursor) 
 ```
 
-## Install in Cursor Agent with Single Command
+## 🛠️ Install in Cursor Agent with Single Command
 ```bash
 API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agent"]={"command":"uvx","args":["--from","git+https://github.com/Operative-Sh/web-eval-agent.git","webEvalAgent"],"env":{"OPERATIVE_API_KEY":$k}}' ~/.cursor/mcp.json > ~/.cursor/mcp.json.tmp && mv ~/.cursor/mcp.json.tmp ~/.cursor/mcp.json
 ```
 
-## Manual JSON Installation 
+## 🛠️ Manual JSON Installation 
 
 ```json
 "web-eval-agent": {
@@ -49,19 +49,14 @@ API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agen
 }
 ```
 
-
-
-
-
-
-## Manual Windows Installation (Cline) 
+## 🛠️ Manual Windows Installation (Cline) 
 ```bash
 # 1. Get your API key at operative.sh
 # 2. Install uv (curl -LsSf https://astral.sh/uv/install.sh | sh)
 # 3. uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git playwright install
 # 4. Unleash the agent in Cline with web_app_ux_evaluator (may have to restart Cline) 
 ```
-## Issues 
+## 🚨 Issues 
 - Any issues feel free to open an Issue on this repo! 
 
 ---
