@@ -28,6 +28,10 @@ bash -i <(curl -LSf https://operative.sh/webevalqa/install.sh)
 # 3. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (may have to restart Cursor) 
 ```
 
+## Install in Cursor Agent with Single Command
+```API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agent"]={"command":"uvx","args":["--from","git+https://github.com/Operative-Sh/web-eval-agent.git","webEvalAgent"],"env":{"OPERATIVE_API_KEY":$k}}' ~/.cursor/mcp.json > ~/.cursor/mcp.json.tmp && mv ~/.cursor/mcp.json.tmp ~/.cursor/mcp.json```
+
+
 ## Windows Installation (Cline) 
 ```bash
 # 1. Get your API key at operative.sh
@@ -35,7 +39,9 @@ bash -i <(curl -LSf https://operative.sh/webevalqa/install.sh)
 # 3. uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git playwright install
 # 4. Unleash the agent in Cline with web_app_ux_evaluator (may have to restart Cline) 
 ```
+## Issues 
+- Any issues feel free to open an Issue on this repo! 
 
 ---
 
-[operative.sh](https://www.operative.sh)
+Built with <3 @ [operative.sh](https://www.operative.sh)
