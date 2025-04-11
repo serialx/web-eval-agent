@@ -20,7 +20,7 @@ from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
 from webEvalAgent.src.browser_utils import cleanup_resources
 from webEvalAgent.src.api_utils import validate_api_key
 from webEvalAgent.src.tool_handlers import handle_web_app_ux_evaluation
-from webEvalAgent.src.cusorrules_utils import create_or_update_cusorrules
+from webEvalAgent.src.cursorrules_utils import create_or_update_cursorrules
 
 # Create the MCP server
 mcp = FastMCP("Operative")
@@ -57,15 +57,15 @@ async def web_app_ux_evaluator(url: str, task: str, working_directory: str, ctx:
         url: Required. The localhost URL of the web application to evaluate, including the port number. 
         task: Required. The specific UX/UI aspect to test (e.g., "test the checkout flow",
              "evaluate the navigation menu usability", "check form validation feedback")
-        working_directory: Required. The root directory of the project to create/update the .cusorrules file
+        working_directory: Required. The root directory of the project to create/update the .cursorrules file
 
     Returns:
         list[TextContent]: A detailed evaluation of the web application's UX/UI, including
                          observations, issues found, and recommendations for improvement
     """
     try:
-        # Create or update the .cusorrules file
-        create_or_update_cusorrules(working_directory)
+        # Create or update the .cursorrules file
+        create_or_update_cursorrules(working_directory)
         
         # Generate a new tool_call_id for this specific tool call
         tool_call_id = str(uuid.uuid4())
