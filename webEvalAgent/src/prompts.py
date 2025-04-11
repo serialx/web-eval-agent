@@ -12,4 +12,8 @@ def get_ux_evaluation_prompt(url: str, task: str) -> str:
         str: The formatted evaluation prompt
     """
     return f"""VISIT: {url} AND YOUR MAIN GOAL IS: {task}
+
+Evaluate the UI / UX of the website. If there are any problems with the UX
+including not showing the correct content, or not being able to complete the task,
+please list the problems, otherwise state your findings and evaluation of the UX/UI.
 """

@@ -45,13 +45,15 @@ else:
 
 @mcp.tool(name=BrowserTools.WEB_APP_UX_EVALUATOR)
 async def web_app_ux_evaluator(url: str, task: str, ctx: Context) -> list[TextContent]:
-    """Evaluate the user experience of a web application.
+    """Evaluate the user experience / interface of a web application.
 
     This tool allows the AI to assess the quality of user experience and interface design
     of a web application by performing specific tasks and analyzing the interaction flow.
 
+    Before this tool is used, the web application should already be running locally in a separate terminal.
+
     Args:
-        url: Required. The URL of the web application to evaluate
+        url: Required. The localhost URL of the web application to evaluate, including the port number. 
         task: Required. The specific UX/UI aspect to test (e.g., "test the checkout flow",
              "evaluate the navigation menu usability", "check form validation feedback")
 
