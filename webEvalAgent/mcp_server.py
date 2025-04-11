@@ -20,6 +20,7 @@ from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
 from webEvalAgent.src.browser_utils import cleanup_resources
 from webEvalAgent.src.api_utils import validate_api_key
 from webEvalAgent.src.tool_handlers import handle_web_app_ux_evaluation
+from webEvalAgent.src.cusorrules_utils import create_or_update_cusorrules
 
 # Create the MCP server
 mcp = FastMCP("Operative")
@@ -44,7 +45,7 @@ else:
     print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
 
 @mcp.tool(name=BrowserTools.WEB_APP_UX_EVALUATOR)
-async def web_app_ux_evaluator(url: str, task: str, ctx: Context) -> list[TextContent]:
+async def web_app_ux_evaluator(url: str, task: str, working_directory: str, ctx: Context) -> list[TextContent]:
     """Evaluate the user experience / interface of a web application.
 
     This tool allows the AI to assess the quality of user experience and interface design
@@ -56,12 +57,16 @@ async def web_app_ux_evaluator(url: str, task: str, ctx: Context) -> list[TextCo
         url: Required. The localhost URL of the web application to evaluate, including the port number. 
         task: Required. The specific UX/UI aspect to test (e.g., "test the checkout flow",
              "evaluate the navigation menu usability", "check form validation feedback")
+        working_directory: Required. The root directory of the project to create/update the .cusorrules file
 
     Returns:
         list[TextContent]: A detailed evaluation of the web application's UX/UI, including
                          observations, issues found, and recommendations for improvement
     """
     try:
+        # Create or update the .cusorrules file
+        create_or_update_cusorrules(working_directory)
+        
         # Generate a new tool_call_id for this specific tool call
         tool_call_id = str(uuid.uuid4())
         print(f"Generated new tool_call_id for web_app_ux_evaluator: {tool_call_id}")
