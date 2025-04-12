@@ -25,7 +25,10 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 1. Get your API key at [operative.sh](https://www.operative.sh)
 2. Run the installer
 ```bash
-bash -i <(curl -LSf https://operative.sh/webevalqa/install.sh)
+# Feel welcome to inspect the installer script like so:
+# curl -LSf https://operative.sh/webevalqa/install.sh | less
+# Download, install, and remove the installer script
+curl -LSf https://operative.sh/webevalqa/install.sh -o install.sh && bash install.sh && rm install.sh
 ```
 3. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (may have to restart Cursor) 
 
