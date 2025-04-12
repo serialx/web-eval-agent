@@ -25,7 +25,7 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 1. Run the installer
 ```bash
 # Feel welcome to inspect the installer script like so:
-# curl -LSf https://operative.sh/web-eval-agent/install.sh | less
+# curl -LSf https://operative.sh/web-eval-agent/install.sh | less -N
 # Download, install, and remove the installer script
 curl -LSf https://operative.sh/web-eval-agent/install.sh -o install.sh && bash install.sh && rm install.sh
 ```
