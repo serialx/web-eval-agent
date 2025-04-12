@@ -22,7 +22,7 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 ## 🏁 Quick Start (macOS/Linux)
 
 
-1. Get your API key at operative.sh
+1. Get your API key at [operative.sh](https://www.operative.sh)
 2. Run the installer
 ```bash
 bash -i <(curl -LSf https://operative.sh/webevalqa/install.sh)
