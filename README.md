@@ -29,16 +29,14 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 # Download, install, and remove the installer script
 curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm install.sh
 ```
-2. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (verify tool refreshed or restart Cursor) 
-
-## 🛠️ Install in Cursor Agent with Single Command
-```bash
-API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agent"]={"command":"uvx","args":["--from","git+https://github.com/Operative-Sh/web-eval-agent.git","webEvalAgent"],"env":{"OPERATIVE_API_KEY":$k}}' ~/.cursor/mcp.json > ~/.cursor/mcp.json.tmp && mv ~/.cursor/mcp.json.tmp ~/.cursor/mcp.json
-```
+2. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (verify tool refreshed or restart Cursor)
+3. If any issues, see Issues section below
+4. 
 
 ## 🛠️ Manual JSON Installation 
-1. Run `uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git webEvalAgent` with no api key first since Cursor doesn't wait for our deps to download! 
-2. On startup, kill and then update your relevent MCP JSON: 
+1. Run `uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git webEvalAgent` with no api key first since Cursor doesn't wait for our deps to download!
+2. `npm install -g playwright`
+3. On startup, kill and then update your relevent MCP JSON: 
 
 ```json
 "web-eval-agent": {
@@ -62,7 +60,7 @@ API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agen
 # 4. Unleash the agent in Cline with web_app_ux_evaluator (may have to restart Cline) 
 ```
 ## 🚨 Issues 
-- Install script has some Playwright issues, fix pushed 4/14, `npm install -g playwright`
+- Initial tool calls Playwright issues, fix pushed 4/14, `npm install -g playwright` playwright issues on tool call. 
 - Any issues feel free to open an Issue on this repo! 
 
 ---
