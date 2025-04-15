@@ -62,6 +62,7 @@ API_KEY="your-api-key-here" && jq --arg k "$API_KEY" '.mcpServers["web-eval-agen
 # 4. Unleash the agent in Cline with web_app_ux_evaluator (may have to restart Cline) 
 ```
 ## 🚨 Issues 
+- Install script has some Playwright issues, fix pushed 4/14, `npm install -g playwright`
 - Any issues feel free to open an Issue on this repo! 
 
 ---
