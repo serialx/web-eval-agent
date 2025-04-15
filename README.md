@@ -22,7 +22,7 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 ## 🏁 Quick Start (macOS/Linux)
 
 
-1. Run the installer
+1. Run the installer after [getting an api key (free)](https://www.operative.sh) 
 ```bash
 # Feel welcome to inspect the installer script like so:
 # curl -LSf https://operative.sh/install.sh | less -N
@@ -31,7 +31,6 @@ curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm
 ```
 2. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (verify tool refreshed or restart Cursor)
 3. If any issues, see Issues section below
-4. 
 
 ## 🛠️ Manual JSON Installation 
 1. Run `uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git webEvalAgent` with no api key first since Cursor doesn't wait for our deps to download!
