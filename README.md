@@ -29,8 +29,7 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 # Download, install, and remove the installer script
 curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm install.sh
 ```
-2. Make sure playwright is installed on your machine (`playwright install` or `npx playwright install`) 
-3. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (may have to restart Cursor) 
+2. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (verify tool refreshed or restart Cursor) 
 
 ## 🛠️ Install in Cursor Agent with Single Command
 ```bash
