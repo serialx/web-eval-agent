@@ -91,12 +91,14 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
         # Format the step history
         formatted_steps = "Agent Steps:\n"
         for step_data in step_history:
-            step_num = step_data.get('step', 'N/A')
+            original_step_num = step_data.get('step', None)
+            # Adjust step number for display (start from 1)
+            display_step_num = original_step_num - 1 if original_step_num is not None else 'N/A'
             url = step_data.get('url', 'N/A')
             output_str = step_data.get('output', '')
             
             # Basic formatting - we can refine this if 'output_str' has a known structure
-            formatted_steps += f"\nINFO     [agent] 📍 Step {step_num}\n"
+            formatted_steps += f"\nINFO     [agent] 📍 Step {display_step_num}\n"
             formatted_steps += f"INFO     [agent] 🔗 URL: {url}\n"
             # Try to parse the agent_output string for more details (simple parsing)
             try:
