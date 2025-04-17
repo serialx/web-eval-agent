@@ -4,6 +4,7 @@ import io
 import json
 import traceback
 import uuid
+import re
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, List, Any
 
@@ -76,20 +77,74 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
     
     # Run the browser task
     log_buffer = io.StringIO()
-    with redirect_stdout(log_buffer), redirect_stderr(log_buffer):
-        result, console_logs, network_requests = await run_browser_task(
-            evaluation_task, 
-            "claude-3-7-sonnet-latest", 
-            ctx, 
-            tool_call_id=tool_call_id,
-            api_key=api_key
-        )
+    formatted_steps = ""
+    try:
+        with redirect_stdout(log_buffer), redirect_stderr(log_buffer):
+            step_history, console_logs_json, network_requests_json = await run_browser_task(
+                evaluation_task, 
+                "claude-3-7-sonnet-latest", 
+                ctx, 
+                tool_call_id=tool_call_id,
+                api_key=api_key
+            )
+
+        # Format the step history
+        formatted_steps = "Agent Steps:\n"
+        for step_data in step_history:
+            original_step_num = step_data.get('step', None)
+            # Adjust step number for display (start from 1)
+            display_step_num = original_step_num - 1 if original_step_num is not None else 'N/A'
+            url = step_data.get('url', 'N/A')
+            output_str = step_data.get('output', '')
+            
+            # Basic formatting - we can refine this if 'output_str' has a known structure
+            formatted_steps += f"\nINFO     [agent] 📍 Step {display_step_num}\n"
+            formatted_steps += f"INFO     [agent] 🔗 URL: {url}\n"
+            # Try to parse the agent_output string for more details (simple parsing)
+            try:
+                # Example: Assuming output looks like "AgentBrain(evaluation_previous_goal='...', memory='...', next_goal='...') action=[ActionModel(...)]"
+                eval_match = re.search(r"evaluation_previous_goal='([^']*)'", output_str)
+                memory_match = re.search(r"memory='([^']*)'", output_str)
+                goal_match = re.search(r"next_goal='([^']*)'", output_str)
+                action_match = re.search(r"action=\[(.*)\]", output_str) # Captures the content inside action=[...]
+                
+                if eval_match: formatted_steps += f"INFO     [agent] 🤷 Eval: {eval_match.group(1)}\n"
+                if memory_match: formatted_steps += f"INFO     [agent] 🧠 Memory: {memory_match.group(1)}\n"
+                if goal_match: formatted_steps += f"INFO     [agent] 🎯 Next goal: {goal_match.group(1)}\n"
+                
+                if action_match:
+                    action_content = action_match.group(1)
+                    # Split actions based on ActionModel pattern - crude but might work for simple cases
+                    actions = re.findall(r"ActionModel\((.*?)\)", action_content)
+                    for i, action_detail in enumerate(actions):
+                        # Try to format the action detail (e.g., extract click_element, input_text)
+                        action_dict_match = re.search(r"(?:click_element|input_text|send_keys|wait|go_to_url|done)=({.*?})", action_detail)
+                        if action_dict_match:
+                             formatted_steps += f"INFO     [agent] 🛠️  Action {i+1}/{len(actions)}: {action_dict_match.group(1)}\n"
+                        else:
+                            # Fallback for actions not matching the expected dict format
+                            formatted_steps += f"INFO     [agent] 🛠️  Action {i+1}/{len(actions)}: {action_detail.strip()}\n"
+                elif 'output' in step_data: # Fallback if no action found but output exists
+                    formatted_steps += f"INFO     [agent] -> Output: {output_str}\n"
+
+            except Exception as parse_error:
+                # If parsing fails, just print the raw output
+                formatted_steps += f"INFO     [agent] -> Raw Output: {output_str}\n"
+                formatted_steps += f"DEBUG    [parser] Error parsing output: {parse_error}\n" # Optional debug info
+
+    except Exception as browser_task_error:
+        formatted_steps = f"ERROR    [agent] Error during browser task execution: {browser_task_error}\n"
+        console_logs_json = "[]"
+        network_requests_json = "[]"
     
-    # Get logs for debugging
-    logs = log_buffer.getvalue()
+    # Get logs captured via redirect_stdout/stderr
+    debug_logs = log_buffer.getvalue()
     
+    # Combine formatted steps with other logs
+    final_text = f"{formatted_steps.strip()}\n\nDebug logs:\n{debug_logs}\n\nConsole logs:\n{console_logs_json}\n\nNetwork requests:\n{network_requests_json}"
+
     # Return the evaluation result
     return [TextContent(
         type="text",
-        text=f"Web Application UX Evaluation Results:\n\n{result}\n\nDebug logs:\n{logs}\n\nConsole logs:\n{console_logs}\n\nNetwork requests:\n{network_requests}"
+        text=final_text
     )]

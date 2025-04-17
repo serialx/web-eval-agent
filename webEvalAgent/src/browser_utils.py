@@ -256,16 +256,9 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             }
             serialized_step_history.append(serialized_step)
             
-        combined_result = {
-            "final_result": serialized_result,
-            "step_history": serialized_step_history,
-            "console_logs": final_console_logs,
-            "network_requests": final_network_requests
-        }
-
         # --- Return Results ---
         # Return both the final result and the step history along with logs
-        return combined_result, json.dumps(combined_result, indent=2), json.dumps(final_network_requests, indent=2)
+        return serialized_step_history, json.dumps(final_console_logs, indent=2), json.dumps(final_network_requests, indent=2)
 
     except Exception as e:
         print(f"\n--- Error During Browser Task Execution ---")
