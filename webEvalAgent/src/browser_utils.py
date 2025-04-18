@@ -37,6 +37,44 @@ original_create_context: Optional[callable] = None
 # Define the maximum number of logs/requests to keep
 MAX_LOG_ENTRIES = 10
 
+# --- URL Filtering for Network Requests ---
+def should_log_network_request(url: str) -> bool:
+    """Determine if a network request should be logged based on its URL.
+    
+    Args:
+        url: The URL of the request
+        
+    Returns:
+        bool: True if the request should be logged, False if it should be filtered out
+    """
+    # Filter out common static assets that aren't usually relevant
+    # Add or remove patterns based on your specific needs
+    
+    # Skip node_modules requests (usually library code)
+    if '/node_modules/' in url:
+        return False
+        
+    # Skip common static file types
+    extensions_to_filter = [
+        '.js', '.css', '.woff', '.woff2', '.ttf', '.eot', '.svg', '.png', 
+        '.jpg', '.jpeg', '.gif', '.ico', '.map'
+    ]
+    
+    for ext in extensions_to_filter:
+        if url.endswith(ext) or f"{ext}?" in url:  # Handle URLs with query params
+            return False
+    
+    # Always log API endpoints (usually important)
+    if '/api/' in url or '/graphql' in url:
+        return True
+        
+    # Log navigation requests (page loads)
+    if '?' not in url and '.' not in url.split('/')[-1]:
+        return True
+    
+    # By default, log everything that wasn't filtered
+    return True
+
 # --- Log Storage (Global within this module using deque) ---
 console_log_storage: deque = deque(maxlen=MAX_LOG_ENTRIES)
 network_request_storage: deque = deque(maxlen=MAX_LOG_ENTRIES)
@@ -57,6 +95,10 @@ async def handle_console_message(message):
 
 async def handle_request(request):
     try:
+        # Skip logging for filtered URLs
+        if not should_log_network_request(request.url):
+            return
+            
         try: headers = await request.all_headers()
         except PlaywrightError as e: headers = {"error": f"Req Header Error: {e}"}
         except Exception as e: headers = {"error": f"Unexpected Req Header Error: {e}"}
@@ -87,6 +129,11 @@ async def handle_request(request):
 async def handle_response(response):
     req_id = id(response.request)
     url = response.url
+    
+    # Skip logging for filtered URLs
+    if not should_log_network_request(url):
+        return
+        
     try:
         try: headers = await response.all_headers()
         except PlaywrightError as e: headers = {"error": f"Resp Header Error: {e}"}
