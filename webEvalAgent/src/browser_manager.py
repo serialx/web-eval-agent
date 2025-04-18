@@ -47,7 +47,7 @@ class PlaywrightBrowserManager:
                 send_log("Initializing Operative Agent (Browser Manager)...", "🚀", log_type='status')
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 try:
-                    s.connect(('localhost', 5000))
+                    s.connect(('localhost', 5009))
                     s.close()
                     print("Log server already appears to be running, skipping initialization")
                     PlaywrightBrowserManager._log_server_started = True

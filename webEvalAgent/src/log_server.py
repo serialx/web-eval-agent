@@ -59,7 +59,7 @@ def send_log(message: str, emoji: str = "➡️", log_type: str = 'agent'):
         print(f"LOG SERVER EMIT FAILED ({log_type}): {emoji} {message} (Error: {e})")
 
 
-def start_log_server(host='127.0.0.1', port=5000):
+def start_log_server(host='127.0.0.1', port=5009):
     """Starts the Flask-SocketIO server in a background thread."""
     def run_server():
         print(f"Starting Operative Control Center server on http://{host}:{port}")
@@ -86,7 +86,7 @@ def start_log_server(host='127.0.0.1', port=5000):
     # Send initial status message
     send_log("Log server thread started.", "🚀", log_type='status') # Add type
 
-def open_log_dashboard(url='http://127.0.0.1:5000'):
+def open_log_dashboard(url='http://127.0.0.1:5009'):
     """Opens the specified URL in a new tab in the default web browser."""
     try:
         print(f"Attempting to open dashboard in new tab at {url}...")
