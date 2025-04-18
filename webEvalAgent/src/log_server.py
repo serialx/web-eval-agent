@@ -6,6 +6,7 @@ from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO
 import logging
 import os
+from datetime import datetime
 
 # Configure logging for Flask and SocketIO (optional, can be noisy)
 log = logging.getLogger('werkzeug')
@@ -34,28 +35,31 @@ def send_static(path):
 @socketio.on('connect')
 def handle_connect():
     print("Log dashboard client connected")
-    # You could add the client's SID (request.sid) to connected_clients if needed
+    # Send status message to dashboard
+    send_log(f"Connected to log server at {datetime.now().strftime('%H:%M:%S')}", "✅", log_type='status')
 
 @socketio.on('disconnect')
 def handle_disconnect():
     print("Log dashboard client disconnected")
-    # You could remove the client's SID from connected_clients if needed
+    # Send status message to dashboard
+    send_log(f"Disconnected from log server at {datetime.now().strftime('%H:%M:%S')}", "❌", log_type='status')
 
-def send_log(message: str, emoji: str = "➡️"):
-    """Sends a log message with an emoji prefix to all connected clients."""
+def send_log(message: str, emoji: str = "➡️", log_type: str = 'agent'):
+    """Sends a log message with an emoji prefix and type to all connected clients."""
     # Ensure socketio context is available. If called from a non-SocketIO thread,
     # use socketio.emit directly.
     try:
         log_entry = f"{emoji} {message}"
-        # print(f"Attempting to send log: {log_entry}") # Debug print if needed
-        socketio.emit('log_message', {'data': log_entry})
-        # print(f"Log emitted: {log_entry}") # Debug print if needed
+        # print(f"Attempting to send log ({log_type}): {log_entry}") # Debug print if needed
+        # Include log_type in the emitted data
+        socketio.emit('log_message', {'data': log_entry, 'type': log_type})
+        # print(f"Log emitted ({log_type}): {log_entry}") # Debug print if needed
     except Exception as e:
         # Fallback print if emit fails (e.g., server not running)
-        print(f"LOG SERVER EMIT FAILED: {emoji} {message} (Error: {e})")
+        print(f"LOG SERVER EMIT FAILED ({log_type}): {emoji} {message} (Error: {e})")
 
 
-def start_log_server(host='127.0.0.1', port=5000):
+def start_log_server(host='127.0.0.1', port=5009):
     """Starts the Flask-SocketIO server in a background thread."""
     def run_server():
         print(f"Starting Operative Control Center server on http://{host}:{port}")
@@ -79,16 +83,20 @@ def start_log_server(host='127.0.0.1', port=5000):
     thread = threading.Thread(target=run_server, daemon=True)
     thread.start()
     print("Log server thread started.")
+    # Send initial status message
+    send_log("Log server thread started.", "🚀", log_type='status') # Add type
 
-def open_log_dashboard(url='http://127.0.0.1:5000'):
+def open_log_dashboard(url='http://127.0.0.1:5009'):
     """Opens the specified URL in a new tab in the default web browser."""
     try:
         print(f"Attempting to open dashboard in new tab at {url}...")
         # Use open_new_tab for better control
         webbrowser.open_new_tab(url)
         print("Browser tab requested.")
+        send_log(f"Opened dashboard in browser at {url}.", "🌐", log_type='status') # Add type
     except Exception as e:
         print(f"Could not open browser automatically: {e}")
+        send_log(f"Could not open browser automatically: {e}", "⚠️", log_type='status') # Add type
 
 # Example usage (for testing this module directly)
 if __name__ == '__main__':
@@ -96,11 +104,16 @@ if __name__ == '__main__':
     import time
     time.sleep(2)
     open_log_dashboard()
-    send_log("Server started and dashboard opened.", "✅")
-    time.sleep(3)
-    send_log("This is a test log message.", "🧪")
-    time.sleep(3)
-    send_log("Another test log with a different emoji.", "🚀")
+    # Use the new log_type argument
+    send_log("Server started and dashboard opened.", "✅", log_type='status')
+    time.sleep(1)
+    send_log("This is a test agent log message.", "🧪", log_type='agent')
+    time.sleep(1)
+    send_log("This is a test console log.", "🖥️", log_type='console')
+    time.sleep(1)
+    send_log("This is a test network request.", "➡️", log_type='network')
+    time.sleep(1)
+    send_log("This is a test network response.", "⬅️", log_type='network')
     # Keep the main thread alive to let the server run
     try:
         while True:
