@@ -11,7 +11,7 @@ from typing import Dict, Any, Tuple, List, Optional
 from collections import deque
 
 # Import Playwright types
-from playwright.async_api import async_playwright, Error as PlaywrightError, Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext
+from playwright.async_api import async_playwright, Error as PlaywrightError, Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext, Page as PlaywrightPage
 
 # Local imports (assuming browser_manager is potentially still used for singleton logic elsewhere, or can be removed if fully replaced)
 # from browser_manager import PlaywrightBrowserManager # Commented out if not needed
@@ -25,6 +25,14 @@ from browser_use.browser.context import BrowserContext # Import BrowserContext
 from langchain_anthropic import ChatAnthropic
 from mcp.server.fastmcp import Context
 from langchain.globals import set_verbose
+
+# This prevents the browser window from stealing focus during execution.
+async def _no_bring_to_front(self, *args, **kwargs):
+    print("Skipping bring_to_front call.") # Optional: for debugging
+    return None
+
+PlaywrightPage.bring_to_front = _no_bring_to_front
+# --- End Patch ---
 
 # Global variable to store agent instance - might be less necessary if Agent is created per task run
 agent_instance = None
