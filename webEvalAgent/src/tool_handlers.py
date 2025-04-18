@@ -17,6 +17,8 @@ from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
 from webEvalAgent.src.browser_utils import run_browser_task
 # Import your prompt function
 from webEvalAgent.src.prompts import get_ux_evaluation_prompt
+# Import log server function
+from .log_server import send_log
 
 # Function to get the singleton browser manager instance
 def get_browser_manager() -> PlaywrightBrowserManager:
@@ -67,84 +69,47 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
             text="Error: 'task' must be a non-empty string describing the UX/UI aspect to test."
         )]
     
+    # Send initial status to dashboard
+    send_log(f"🚀 Received UX evaluation task: {task}", "🚀")
+    send_log(f"🔗 Target URL: {url}", "🔗")
+
     # Get the singleton browser manager and initialize it
     browser_manager = get_browser_manager()
     if not browser_manager.is_initialized:
+        # Initialization now handles log server start and dashboard opening
         await browser_manager.initialize()
         
     # Get the evaluation task prompt
     evaluation_task = get_ux_evaluation_prompt(url, task)
+    send_log(f"📝 Generated evaluation prompt.", "📝")
     
     # Run the browser task
-    log_buffer = io.StringIO()
-    formatted_steps = ""
+    agent_final_result = None
     try:
-        with redirect_stdout(log_buffer), redirect_stderr(log_buffer):
-            step_history, console_logs_json, network_requests_json = await run_browser_task(
-                evaluation_task, 
-                "claude-3-7-sonnet-latest", 
-                ctx, 
-                tool_call_id=tool_call_id,
-                api_key=api_key
-            )
+        # run_browser_task now only returns the final result string
+        agent_final_result = await run_browser_task(
+            evaluation_task,
+            "claude-3-7-sonnet-latest", # This model name might need update based on browser_utils
+            ctx,
+            tool_call_id=tool_call_id,
+            api_key=api_key
+        )
 
-        # Format the step history
-        formatted_steps = "Agent Steps:\n"
-        for step_data in step_history:
-            original_step_num = step_data.get('step', None)
-            # Adjust step number for display (start from 1)
-            display_step_num = original_step_num - 1 if original_step_num is not None else 'N/A'
-            url = step_data.get('url', 'N/A')
-            output_str = step_data.get('output', '')
-            
-            # Basic formatting - we can refine this if 'output_str' has a known structure
-            formatted_steps += f"\nINFO     [agent] 📍 Step {display_step_num}\n"
-            formatted_steps += f"INFO     [agent] 🔗 URL: {url}\n"
-            # Try to parse the agent_output string for more details (simple parsing)
-            try:
-                # Example: Assuming output looks like "AgentBrain(evaluation_previous_goal='...', memory='...', next_goal='...') action=[ActionModel(...)]"
-                eval_match = re.search(r"evaluation_previous_goal='([^']*)'", output_str)
-                memory_match = re.search(r"memory='([^']*)'", output_str)
-                goal_match = re.search(r"next_goal='([^']*)'", output_str)
-                action_match = re.search(r"action=\[(.*)\]", output_str) # Captures the content inside action=[...]
-                
-                if eval_match: formatted_steps += f"INFO     [agent] 🤷 Eval: {eval_match.group(1)}\n"
-                if memory_match: formatted_steps += f"INFO     [agent] 🧠 Memory: {memory_match.group(1)}\n"
-                if goal_match: formatted_steps += f"INFO     [agent] 🎯 Next goal: {goal_match.group(1)}\n"
-                
-                if action_match:
-                    action_content = action_match.group(1)
-                    # Split actions based on ActionModel pattern - crude but might work for simple cases
-                    actions = re.findall(r"ActionModel\((.*?)\)", action_content)
-                    for i, action_detail in enumerate(actions):
-                        # Try to format the action detail (e.g., extract click_element, input_text)
-                        action_dict_match = re.search(r"(?:click_element|input_text|send_keys|wait|go_to_url|done)=({.*?})", action_detail)
-                        if action_dict_match:
-                             formatted_steps += f"INFO     [agent] 🛠️  Action {i+1}/{len(actions)}: {action_dict_match.group(1)}\n"
-                        else:
-                            # Fallback for actions not matching the expected dict format
-                            formatted_steps += f"INFO     [agent] 🛠️  Action {i+1}/{len(actions)}: {action_detail.strip()}\n"
-                elif 'output' in step_data: # Fallback if no action found but output exists
-                    formatted_steps += f"INFO     [agent] -> Output: {output_str}\n"
-
-            except Exception as parse_error:
-                # If parsing fails, just print the raw output
-                formatted_steps += f"INFO     [agent] -> Raw Output: {output_str}\n"
-                formatted_steps += f"DEBUG    [parser] Error parsing output: {parse_error}\n" # Optional debug info
+        # Optional: Send the final result from the agent to the dashboard as well
+        send_log(f"✅ Agent final result: {agent_final_result}", "✅")
 
     except Exception as browser_task_error:
-        formatted_steps = f"ERROR    [agent] Error during browser task execution: {browser_task_error}\n"
-        console_logs_json = "[]"
-        network_requests_json = "[]"
-    
-    # Get logs captured via redirect_stdout/stderr
-    debug_logs = log_buffer.getvalue()
-    
-    # Combine formatted steps with other logs
-    final_text = f"{formatted_steps.strip()}\n\nDebug logs:\n{debug_logs}\n\nConsole logs:\n{console_logs_json}\n\nNetwork requests:\n{network_requests_json}"
+        # formatted_steps = f"ERROR    [agent] Error during browser task execution: {browser_task_error}\n"
+        error_msg = f"Error during browser task execution: {browser_task_error}\n{traceback.format_exc()}"
+        send_log(error_msg, "❌")
+        agent_final_result = f"Error: {browser_task_error}" # Provide error as result
 
-    # Return the evaluation result
+    # Return a confirmation message to the MCP user
+    # The detailed logs are available on the dashboard
+    confirmation_text = f"✅ UX evaluation task initiated for {url}. Final agent state: '{agent_final_result}'. See the 'Operative Control Center' dashboard for detailed live logs."
+    send_log(confirmation_text, "✅") # Also send confirmation to dashboard
+
     return [TextContent(
         type="text",
-        text=final_text
+        text=confirmation_text
     )]

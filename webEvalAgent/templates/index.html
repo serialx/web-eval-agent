@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operative Control Center</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #212529;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #343a40;
+            color: white;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+        .controls button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s ease;
+        }
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+        #log-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-top: 1px solid #dee2e6;
+            font-family: "SF Mono", "Consolas", "Menlo", monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            white-space: pre-wrap; /* Wrap long lines */
+            word-wrap: break-word; /* Break words if necessary */
+        }
+        .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 2px;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+         /* Simple fade-in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .log-entry {
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📊 Operative Control Center</h1>
+        <div class="controls">
+            <button id="copy-button">📋 Copy Logs</button>
+        </div>
+    </header>
+
+    <div id="log-container"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // Connect to the Socket.IO server
+            // Assumes server is running on the same host/port
+            // For production/different host, specify URL: io('http://localhost:5000')
+            const socket = io();
+            const logContainer = document.getElementById('log-container');
+            const copyButton = document.getElementById('copy-button');
+
+            socket.on('connect', () => {
+                console.log('Connected to log server');
+                const entry = document.createElement('div');
+                entry.classList.add('log-entry');
+                entry.style.color = '#28a745'; // Green for connection status
+                entry.textContent = `✅ Connected to log server at ${new Date().toLocaleTimeString()}`;
+                logContainer.appendChild(entry);
+                scrollToBottom();
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from log server');
+                const entry = document.createElement('div');
+                entry.classList.add('log-entry');
+                entry.style.color = '#dc3545'; // Red for disconnection
+                entry.textContent = `❌ Disconnected from log server at ${new Date().toLocaleTimeString()}`;
+                logContainer.appendChild(entry);
+                scrollToBottom();
+            });
+
+            socket.on('log_message', (msg) => {
+                console.log('Received log:', msg.data);
+                const entry = document.createElement('div');
+                entry.classList.add('log-entry');
+                entry.textContent = msg.data; // Already formatted with emoji
+                logContainer.appendChild(entry);
+                scrollToBottom();
+            });
+
+            copyButton.addEventListener('click', () => {
+                const logs = logContainer.textContent || logContainer.innerText;
+                navigator.clipboard.writeText(logs).then(() => {
+                    copyButton.textContent = '✅ Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = '📋 Copy Logs';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy logs: ', err);
+                    alert('Failed to copy logs to clipboard.');
+                });
+            });
+
+            function scrollToBottom() {
+                // Only scroll if the user hasn't scrolled up
+                // Check if scrolled to the bottom (or very close)
+                const isScrolledToBottom = logContainer.scrollHeight - logContainer.clientHeight <= logContainer.scrollTop + 50; // Add some tolerance
+
+                if (isScrolledToBottom) {
+                     logContainer.scrollTop = logContainer.scrollHeight;
+                }
+            }
+
+            // Initial message
+             const entry = document.createElement('div');
+             entry.classList.add('log-entry');
+             entry.textContent = `🕒 Initializing Log Viewer at ${new Date().toLocaleTimeString()}...`;
+             logContainer.appendChild(entry);
+        });
+    </script>
+</body>
+</html> 

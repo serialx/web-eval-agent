@@ -10,6 +10,9 @@ from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any, Tuple, List, Optional
 from collections import deque
 
+# Import log server function
+from .log_server import send_log
+
 # Import Playwright types
 from playwright.async_api import async_playwright, Error as PlaywrightError, Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext
 
@@ -46,8 +49,11 @@ async def handle_console_message(message):
         # Appending to deque automatically handles maxlen
         console_log_storage.append(log_entry)
         # print(f"-> CONSOLE LOG ({len(console_log_storage)}/{MAX_LOG_ENTRIES}): {log_entry['type']} - {log_entry['text'][:150]}") # Updated debug print
+        # Send to dashboard
+        send_log(f"🖥️ CONSOLE [{log_entry['type']}]: {log_entry['text']}", "🖥️")
     except Exception as e:
-        print(f"Error handling console message: {e} - Args: {message.args}")
+        # print(f"Error handling console message: {e} - Args: {message.args}")
+        send_log(f"❌ Error handling console message: {e}", "❌")
 
 async def handle_request(request):
     try:
@@ -71,8 +77,12 @@ async def handle_request(request):
         # Appending to deque automatically handles maxlen
         network_request_storage.append(request_entry)
         # print(f"-> NETWORK REQ ({len(network_request_storage)}/{MAX_LOG_ENTRIES}): {request_entry['method']} {request_entry['url']}") # Updated debug print
+        # Send to dashboard
+        send_log(f"➡️ NET REQ [{request_entry['method']}]: {request_entry['url']}", "➡️")
     except Exception as e:
-        print(f"Error handling request event for {request.url if request else 'Unknown URL'}: {e}")
+        # print(f"Error handling request event for {request.url if request else 'Unknown URL'}: {e}")
+        url = request.url if request else 'Unknown URL'
+        send_log(f"❌ Error handling request event for {url}: {e}", "❌")
 
 async def handle_response(response):
     req_id = id(response.request)
@@ -101,14 +111,20 @@ async def handle_response(response):
                 req["response_body_size"] = body_size
                 req["response_timestamp"] = asyncio.get_event_loop().time()
                 # print(f"-> NETWORK RESP ({len(network_request_storage)}/{MAX_LOG_ENTRIES}): {status} for {url}") # Updated debug print
+                # Send to dashboard
+                send_log(f"⬅️ NET RESP [{status}]: {url}", "⬅️")
                 break
+        else: # If loop finishes without break (request not found/already has response)
+            # Log response even if request wasn't matched in our deque (e.g., redirect, cached)
+            send_log(f"⬅️ NET RESP* [{status}]: {url} (req not matched/updated)", "⬅️")
     except Exception as e:
-        print(f"Error handling response event for {url}: {e}")
+        # print(f"Error handling response event for {url}: {e}")
+        send_log(f"❌ Error handling response event for {url}: {e}", "❌")
 
 
-async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> Tuple[str, str, str]:
+async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> str:
     """
-    Run a task using browser-use agent, capturing console and network logs.
+    Run a task using browser-use agent, sending logs to the dashboard.
 
     Args:
         task: The task to run.
@@ -118,10 +134,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         api_key: The API key for authentication.
 
     Returns:
-        Tuple[str, str, str]: A tuple containing:
-            - Agent's final result (stringified).
-            - Console logs as a JSON string.
-            - Network requests as a JSON string.
+        str: Agent's final result (stringified).
     """
     global agent_instance, console_log_storage, network_request_storage, original_create_context
 
@@ -151,14 +164,16 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         # --- Initialize Playwright Directly ---
         playwright = await async_playwright().start()
         playwright_browser = await playwright.chromium.launch(headless=False)
-        print("Playwright initialized directly.")
+        # print("Playwright initialized directly.")
+        send_log("🎭 Playwright initialized for task.", "🎭")
 
         # --- Create browser-use Browser ---
         browser_config = BrowserConfig(disable_security=True, headless=False)
         agent_browser = Browser(config=browser_config)
         agent_browser.playwright = playwright
         agent_browser.playwright_browser = playwright_browser
-        print("Assigned direct Playwright objects to agent_browser.")
+        # print("Assigned direct Playwright objects to agent_browser.")
+        send_log("🔗 Linked Playwright to agent browser.", "🔗")
 
         # --- Patch BrowserContext._create_context ---
         # Store original only if not already stored (first run)
@@ -178,14 +193,17 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             # print("Patched BrowserContext._create_context called...") # Reduce noise
             raw_playwright_context: PlaywrightBrowserContext = await original_create_context(self, browser_pw)
             # print(f"Original _create_context created raw context: {raw_playwright_context}") # Reduce noise
+            send_log("🔧 BrowserContext patched, attaching log handlers...", "🔧")
 
             if raw_playwright_context:
                 raw_playwright_context.on("console", handle_console_message)
                 raw_playwright_context.on("request", handle_request)
                 raw_playwright_context.on("response", handle_response)
                 # print("Listeners attached to raw Playwright context.") # Reduce noise
+                send_log("👂 Log listeners attached.", "👂")
             else:
-                 print("!!! Warning: Original _create_context did not return a context.")
+                 # print("!!! Warning: Original _create_context did not return a context.")
+                 send_log("⚠️ Original _create_context did not return a context.", "⚠️")
 
             return raw_playwright_context
 
@@ -196,7 +214,8 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         # --- Ensure Tool Call ID ---
         if tool_call_id is None:
             tool_call_id = str(uuid.uuid4())
-            print(f"Generated new tool_call_id in run_browser_task: {tool_call_id}")
+            # print(f"Generated new tool_call_id in run_browser_task: {tool_call_id}")
+            send_log(f"🆔 Generated tool_call_id: {tool_call_id}", "🆔")
 
         # --- LLM Setup ---
         llm = ChatAnthropic(model="claude-3-5-sonnet-20240620",
@@ -205,15 +224,19 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                 "x-operative-api-key": api_key,
                 "x-operative-tool-call-id": tool_call_id
             })
+        send_log(f"🤖 LLM ({llm.model}) configured.", "🤖")
 
         # --- Agent Callback ---
-        step_history = []
         async def state_callback(browser_state, agent_output, step_number):
-            step_history.append({
-                "step": step_number,
-                "url": browser_state.url,
-                "output": agent_output
-            })
+            # Instead of appending, send log directly
+            # step_history.append({
+            #     "step": step_number,
+            #     "url": browser_state.url,
+            #     "output": agent_output
+            # })
+            send_log(f"📍 Step {step_number}", "📍")
+            send_log(f"🔗 URL: {browser_state.url}", "🔗")
+            send_log(f"💬 Agent Output: {agent_output}", "💬")
 
         # --- Initialize and Run Agent ---
         agent = Agent(
@@ -224,85 +247,60 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         )
         agent_instance = agent # Store globally if needed elsewhere
 
-        print(f"Agent starting task: {task}")
+        # print(f"Agent starting task: {task}")
+        send_log(f"🏃 Agent starting task: {task}", "🏃")
         agent_result = await agent.run() # Agent returns AgentHistoryList
+        send_log(f"🏁 Agent run finished.", "🏁")
 
-        print("\n--- Agent Run Finished ---")
-        for r in step_history:
-            print(f"Step {r['step']}: {r['url']} - {r['output']}")
-
-        # --- Final Log Summary ---
-        print("\n--- Final Log Summary ---")
-        # Convert deque to list before JSON serialization
-        final_console_logs = list(console_log_storage)
-        final_network_requests = list(network_request_storage)
-        print(f"Total Console Logs Captured (max {MAX_LOG_ENTRIES}): {len(final_console_logs)}")
-        print(f"Total Network Requests Captured (max {MAX_LOG_ENTRIES}): {len(final_network_requests)}")
-        # Print samples from the lists
-        if final_console_logs: print("\nSample Console Logs (Last 5):\n" + "\n".join([f"- {l.get('type','?').ljust(8)}: {l.get('text','?')[:150]}" for l in final_console_logs[-5:]]))
-        if final_network_requests: print("\nSample Network Requests (Last 5):\n" + "\n".join([f"- {r.get('method','?').ljust(4)} {r.get('response_status','???')} {r.get('url','?')}" for r in final_network_requests[-5:]]))
+        # --- Final Log Summary (Remove, logs are live) ---
+        # print("\n--- Final Log Summary ---")
+        # final_console_logs = list(console_log_storage)
+        # final_network_requests = list(network_request_storage)
+        # print(f"Total Console Logs Captured (max {MAX_LOG_ENTRIES}): {len(final_console_logs)}")
+        # print(f"Total Network Requests Captured (max {MAX_LOG_ENTRIES}): {len(final_network_requests)}")
+        # if final_console_logs: print("\nSample Console Logs (Last 5):\n" + "\n".join([f"- {l.get('type','?').ljust(8)}: {l.get('text','?')[:150]}" for l in final_console_logs[-5:]]))
+        # if final_network_requests: print("\nSample Network Requests (Last 5):\n" + "\n".join([f"- {r.get('method','?').ljust(4)} {r.get('response_status','???')} {r.get('url','?')}" for r in final_network_requests[-5:]]))
 
         # --- Prepare Combined Results ---
-        # Convert AgentHistoryList to a serializable format
+        # Convert AgentHistoryList to a serializable format (just stringify)
         serialized_result = str(agent_result)
-            
-        # Ensure all objects in step_history are serializable
-        serialized_step_history = []
-        for step in step_history:
-            serialized_step = {
-                "step": step["step"],
-                "url": step["url"],
-                "output": str(step["output"]) if not isinstance(step["output"], (str, int, float, bool, type(None))) else step["output"]
-            }
-            serialized_step_history.append(serialized_step)
-            
-        # --- Return Results ---
-        # Return both the final result and the step history along with logs
-        return serialized_step_history, json.dumps(final_console_logs, indent=2), json.dumps(final_network_requests, indent=2)
+
+        # Remove old log returns
+        # console_logs_json = json.dumps(final_console_logs, default=str) # Use default=str for non-serializable items
+        # network_requests_json = json.dumps(final_network_requests, default=str)
+
+        # Return only the agent result
+        return serialized_result
 
     except Exception as e:
-        print(f"\n--- Error During Browser Task Execution ---")
-        logging.error(f"Task '{task}' failed", exc_info=True)
-        # Return error and any logs captured so far
-        error_message = f"Error during task execution: {e}"
-        # Convert deque objects to lists before JSON serialization
-        return error_message, json.dumps(list(console_log_storage), indent=2), json.dumps(list(network_request_storage), indent=2)
-
+        # print(f"Error in run_browser_task: {e}")
+        # print(traceback.format_exc())
+        error_message = f"Error in run_browser_task: {e}\n{traceback.format_exc()}"
+        send_log(error_message, "❌")
+        # Return error message instead of logs
+        return error_message
     finally:
         # --- Cleanup ---
-        print("\nCleaning up browser task resources...")
-        # Restore original method only if we stored it in this run's scope
-        # This avoids issues if multiple tasks run concurrently (though not recommended with this patching)
+        # Ensure patch is restored
         if local_original_create_context:
-             BrowserContext._create_context = local_original_create_context
-             print("Restored original BrowserContext._create_context.")
-             # Reset global only if we're sure no other task is running
-             # For safety, might be better to always keep original_create_context stored globally once set.
+            BrowserContext._create_context = local_original_create_context
+            # print("Restored original BrowserContext._create_context.")
+            send_log("🔧 Original BrowserContext restored.", "🔧")
 
-        # Close browser-use Browser instance (might close underlying Playwright too)
+        # Close the browser created specifically for this task
         if agent_browser:
-            try: await agent_browser.close()
-            except Exception as e: print(f"Ignoring error during agent_browser.close(): {e}")
-
-        # Ensure underlying Playwright resources are closed if agent_browser didn't
-        if playwright_browser and playwright_browser.is_connected():
-             await playwright_browser.close()
-             print("Closed direct Playwright browser.")
+            await agent_browser.close()
+            agent_browser = None
+            send_log("🧹 Agent browser resources cleaned up.", "🧹")
+        # Close the playwright instance started for this task
         if playwright:
-             await playwright.stop()
-             print("Stopped Playwright.")
-        print("Browser task cleanup complete.")
+            await playwright.stop()
+            playwright = None
+            send_log("🧹 Playwright instance for task stopped.", "🧹")
 
+        # Clear the global instance if it was set
+        agent_instance = None
 
-async def cleanup_resources() -> None:
-    """
-    Global cleanup function if needed, but run_browser_task should handle its own.
-    If using a singleton manager elsewhere, this could call its close method.
-    """
-    print("Running global cleanup (if any specific actions needed)...")
-    # Example if using singleton manager:
-    # browser_manager = PlaywrightBrowserManager.get_instance()
-    # if browser_manager.is_initialized:
-    #     await browser_manager.close()
-    #     print("Closed singleton browser manager.")
-    pass
+# Note: Removed cleanup_resources() function as cleanup is now in finally block
+# async def cleanup_resources() -> None:
+#     ...
