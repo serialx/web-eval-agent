@@ -114,17 +114,97 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
         send_log(f"✅ Agent final result: {agent_final_result}", "✅")
 
     except Exception as browser_task_error:
-        # formatted_steps = f"ERROR    [agent] Error during browser task execution: {browser_task_error}\n"
         error_msg = f"Error during browser task execution: {browser_task_error}\n{traceback.format_exc()}"
         send_log(error_msg, "❌")
         agent_final_result = f"Error: {browser_task_error}" # Provide error as result
 
-    # Return a confirmation message to the MCP user
-    # The detailed logs are available on the dashboard
-    confirmation_text = f"✅ UX evaluation task initiated for {url}. Final agent state: '{agent_final_result}'. See the 'Operative Control Center' dashboard for detailed live logs."
+    # Format the agent result in a more user-friendly way
+    formatted_result = format_agent_result(agent_final_result, url, task)
+    
+    # Return a better formatted message to the MCP user
+    # Including a reference to the dashboard for detailed logs
+    confirmation_text = f"{formatted_result}\n\n👁️ See the 'Operative Control Center' dashboard for detailed live logs."
     send_log(confirmation_text, "✅") # Also send confirmation to dashboard
 
     return [TextContent(
         type="text",
         text=confirmation_text
     )]
+
+def format_agent_result(result_str: str, url: str, task: str) -> str:
+    """Format the agent result in a readable way with emojis.
+    
+    Args:
+        result_str: Raw string representation of the agent result
+        url: The URL that was evaluated
+        task: The task that was executed
+        
+    Returns:
+        str: Formatted result with steps and conclusion
+    """
+    # Start with a header
+    formatted = f"📊 UX Evaluation Report for {url}\n"
+    formatted += f"📝 Task: {task}\n\n"
+    
+    # Check if there's an error
+    if result_str.startswith("Error:"):
+        return f"{formatted}❌ {result_str}"
+    
+    # Try to extract action results from the string
+    try:
+        # Look for the all_results list in the string
+        # This approach is more reliable than regex for simple extraction
+        if "all_results=[" in result_str:
+            # Get the part between all_results=[ and the next ]
+            results_part = result_str.split("all_results=[")[1].split("]")[0]
+            
+            # Split by ActionResult to get individual results
+            action_results = results_part.split("ActionResult(")
+            
+            # Skip the first empty item
+            action_results = [r for r in action_results if r.strip()]
+            
+            # Format steps with emojis
+            formatted += "🔍 Agent Steps:\n"
+            
+            for i, action in enumerate(action_results):
+                # Extract the extracted_content which contains the step description
+                if "extracted_content=" in action:
+                    content_part = action.split("extracted_content=")[1].split(",")[0]
+                    # Clean up the content
+                    content = content_part.strip("'\"")
+                    
+                    # Skip None values
+                    if content == "None":
+                        continue
+                        
+                    # Check if there's an error
+                    if "error=" in action and not "error=None" in action:
+                        error_part = action.split("error=")[1].split(",")[0]
+                        error = error_part.strip("'\"")
+                        if error != "None":
+                            formatted += f"  ❌ Step {i+1}: {error}\n"
+                            continue
+                    
+                    # Add emoji if not present
+                    if not content.startswith(("🔗", "🖱️", "⌨️", "🔍", "✅", "❌", "⚠️")):
+                        content = f"✅ {content}"
+                        
+                    formatted += f"  {content}\n"
+        
+        # Try to extract the final conclusion (usually in the 'done' step)
+        # The last action result with is_done=True usually contains the conclusion
+        if "is_done=True" in result_str:
+            done_parts = result_str.split("is_done=True")
+            for done_part in done_parts:
+                if "extracted_content=" in done_part:
+                    content = done_part.split("extracted_content=")[1].split(",")[0].strip("'\"")
+                    if content and content != "None":
+                        formatted += f"\n🏁 Conclusion:\n{content}\n"
+                        break
+        
+    except Exception as e:
+        # If parsing fails, return a simpler message with the raw result
+        return f"{formatted}⚠️ Result parsing failed: {e}\nRaw result: {result_str[:200]}...\n"
+    
+    return formatted
