@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 
 import asyncio
+import socket
 from typing import Dict, List, Optional
 import logging
+
+# Import log server functions
+from .log_server import start_log_server, open_log_dashboard, send_log
 
 class PlaywrightBrowserManager:
     # Class variable to hold the singleton instance
     _instance: Optional['PlaywrightBrowserManager'] = None
+    _log_server_started = False # Flag to ensure server starts only once
     
     @classmethod
     def get_instance(cls) -> 'PlaywrightBrowserManager':
@@ -36,13 +41,43 @@ class PlaywrightBrowserManager:
         if self.is_initialized:
             return
             
+        # Start log server and open dashboard only once (skip if already started elsewhere)
+        if not PlaywrightBrowserManager._log_server_started:
+            try:
+                send_log("🚀 Initializing Operative Agent...")
+                # Check if the start_log_server function has already been called by checking
+                # if a Flask app is already running on the expected port
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                try:
+                    # Try to connect to the log server port (5000 by default)
+                    s.connect(('localhost', 5000))
+                    s.close()
+                    # Port is in use, assume the server is already running
+                    print("Log server already appears to be running, skipping initialization")
+                    PlaywrightBrowserManager._log_server_started = True
+                    send_log("✅ Connected to existing log server.")
+                except (socket.error, Exception):
+                    # Port is available, start the server
+                    s.close()
+                    start_log_server()
+                    # Give server a moment to start before opening browser
+                    await asyncio.sleep(1)
+                    open_log_dashboard()
+                    PlaywrightBrowserManager._log_server_started = True
+                    send_log("✅ Log server started and dashboard opened from browser manager.")
+            except Exception as e:
+                print(f"Error starting/checking log server/dashboard: {e}") # Fallback print
+                # Optionally send to log server if it partially started?
+                send_log(f"❌ Error with log server/dashboard: {e}")
+
         # Import here to avoid module import issues
-        import asyncio
+        # import asyncio  # Already imported at the top of the file
         from playwright.async_api import async_playwright
 
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch()
         self.is_initialized = True
+        send_log("🎭 Playwright initialized.") # Log successful initialization
 
     async def close(self) -> None:
         """Close the browser and Playwright instance."""
@@ -61,6 +96,7 @@ class PlaywrightBrowserManager:
         self.is_initialized = False
         self.console_logs = []
         self.network_requests = []
+        send_log("🛑 Browser manager closed.")
 
     async def open_url(self, url: str) -> str:
         """Open a URL in the browser and start monitoring console and network.
@@ -88,6 +124,7 @@ class PlaywrightBrowserManager:
         
         # Navigate to the URL
         await self.page.goto(url, wait_until="networkidle")
+        send_log(f"🌍 Navigated to: {url}")
         
         return f"Opened {url} successfully. The browser window will remain open for you to interact with."
 
@@ -100,6 +137,8 @@ class PlaywrightBrowserManager:
             "timestamp": asyncio.get_event_loop().time()
         }
         self.console_logs.append(log_entry)
+        # Send console log to dashboard
+        send_log(f"🖥️ CONSOLE [{log_entry['type']}]: {log_entry['text']}", "🖥️")
 
     async def _handle_request(self, request) -> None:
         """Handle network requests."""
@@ -112,19 +151,31 @@ class PlaywrightBrowserManager:
             "id": id(request)
         }
         self.network_requests.append(request_entry)
+        # Send request info to dashboard
+        send_log(f"➡️ NET REQ [{request_entry['method']}]: {request_entry['url']}", "➡️")
 
     async def _handle_response(self, response) -> None:
         """Handle network responses."""
+        response_timestamp = asyncio.get_event_loop().time()
+        response_data = {
+            "status": response.status,
+            "statusText": response.status_text,
+            "headers": response.headers,
+            "timestamp": response_timestamp
+        }
         # Find the matching request and update it with response data
-        for request in self.network_requests:
-            if request.get("url") == response.url and "response" not in request:
-                request["response"] = {
-                    "status": response.status,
-                    "statusText": response.status_text,
-                    "headers": response.headers,
-                    "timestamp": asyncio.get_event_loop().time()
-                }
+        found = False
+        for req in self.network_requests:
+            # Use id for more reliable matching if available
+            if req.get("id") == id(response.request) and "response" not in req:
+                req["response"] = response_data
+                # Send response info to dashboard
+                send_log(f"⬅️ NET RESP [{response_data['status']}]: {req['url']}", "⬅️")
+                found = True
                 break
+        if not found:
+             # Log responses even if request wasn't found (e.g., redirects)
+             send_log(f"⬅️ NET RESP* [{response_data['status']}]: {response.url} (request not matched)", "⬅️")
 
     async def get_console_logs(self, last_n: int) -> List[Dict]:
         """Get console logs collected so far with deduplication of repeated messages."""

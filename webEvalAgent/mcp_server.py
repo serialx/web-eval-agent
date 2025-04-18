@@ -17,7 +17,7 @@ from mcp.types import TextContent
 
 # Import our modules
 from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
-from webEvalAgent.src.browser_utils import cleanup_resources
+# from webEvalAgent.src.browser_utils import cleanup_resources # Removed import
 from webEvalAgent.src.api_utils import validate_api_key
 from webEvalAgent.src.tool_handlers import handle_web_app_ux_evaluation
 
@@ -86,7 +86,8 @@ if __name__ == "__main__":
         mcp.run(transport='stdio')
     finally:
         # Ensure resources are cleaned up
-        asyncio.run(cleanup_resources())
+        # asyncio.run(cleanup_resources()) # Cleanup now handled in browser_utils
+        pass # Keep finally block structure if needed later
 
 def main():
      try:
@@ -94,4 +95,5 @@ def main():
          mcp.run(transport='stdio')
      finally:
          # Ensure resources are cleaned up
-         asyncio.run(cleanup_resources())
+         # asyncio.run(cleanup_resources()) # Cleanup now handled in browser_utils
+         pass # Keep finally block structure if needed later
