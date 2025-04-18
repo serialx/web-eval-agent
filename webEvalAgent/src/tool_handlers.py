@@ -17,8 +17,10 @@ from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
 from webEvalAgent.src.browser_utils import run_browser_task
 # Import your prompt function
 from webEvalAgent.src.prompts import get_ux_evaluation_prompt
-# Import log server function
-from .log_server import send_log
+# Import log server functions directly
+from .log_server import send_log, start_log_server, open_log_dashboard
+# For sleep
+import asyncio
 
 # Function to get the singleton browser manager instance
 def get_browser_manager() -> PlaywrightBrowserManager:
@@ -46,6 +48,18 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
     Returns:
         list[TextContent]: The evaluation results, including console logs and network requests
     """
+    # Initialize log server immediately (if not already running)
+    try:
+        # Start the log server right away
+        start_log_server()
+        # Give the server a moment to start
+        await asyncio.sleep(1)
+        # Open the dashboard in a new tab
+        open_log_dashboard()
+        print("Log dashboard initialized and opened")
+    except Exception as log_server_error:
+        print(f"Warning: Could not start log dashboard: {log_server_error}")
+    
     # Validate required arguments
     if "url" not in arguments or "task" not in arguments:
         return [TextContent(
@@ -76,7 +90,8 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
     # Get the singleton browser manager and initialize it
     browser_manager = get_browser_manager()
     if not browser_manager.is_initialized:
-        # Initialization now handles log server start and dashboard opening
+        # Note: browser_manager.initialize will no longer need to start the log server
+        # since we've already done it above
         await browser_manager.initialize()
         
     # Get the evaluation task prompt

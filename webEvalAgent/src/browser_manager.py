@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import socket
 from typing import Dict, List, Optional
 import logging
 
@@ -40,23 +41,37 @@ class PlaywrightBrowserManager:
         if self.is_initialized:
             return
             
-        # Start log server and open dashboard only once
+        # Start log server and open dashboard only once (skip if already started elsewhere)
         if not PlaywrightBrowserManager._log_server_started:
             try:
                 send_log("🚀 Initializing Operative Agent...")
-                start_log_server()
-                # Give server a moment to start before opening browser
-                await asyncio.sleep(1)
-                open_log_dashboard()
-                PlaywrightBrowserManager._log_server_started = True
-                send_log("✅ Log server started and dashboard opened.")
+                # Check if the start_log_server function has already been called by checking
+                # if a Flask app is already running on the expected port
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                try:
+                    # Try to connect to the log server port (5000 by default)
+                    s.connect(('localhost', 5000))
+                    s.close()
+                    # Port is in use, assume the server is already running
+                    print("Log server already appears to be running, skipping initialization")
+                    PlaywrightBrowserManager._log_server_started = True
+                    send_log("✅ Connected to existing log server.")
+                except (socket.error, Exception):
+                    # Port is available, start the server
+                    s.close()
+                    start_log_server()
+                    # Give server a moment to start before opening browser
+                    await asyncio.sleep(1)
+                    open_log_dashboard()
+                    PlaywrightBrowserManager._log_server_started = True
+                    send_log("✅ Log server started and dashboard opened from browser manager.")
             except Exception as e:
-                print(f"Error starting log server/dashboard: {e}") # Fallback print
+                print(f"Error starting/checking log server/dashboard: {e}") # Fallback print
                 # Optionally send to log server if it partially started?
-                send_log(f"❌ Error starting log server/dashboard: {e}")
+                send_log(f"❌ Error with log server/dashboard: {e}")
 
         # Import here to avoid module import issues
-        import asyncio
+        # import asyncio  # Already imported at the top of the file
         from playwright.async_api import async_playwright
 
         self.playwright = await async_playwright().start()

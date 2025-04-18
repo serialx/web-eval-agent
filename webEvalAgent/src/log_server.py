@@ -2,8 +2,6 @@
 
 import threading
 import webbrowser
-import sys
-import subprocess
 from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO
 import logging
@@ -83,55 +81,14 @@ def start_log_server(host='127.0.0.1', port=5000):
     print("Log server thread started.")
 
 def open_log_dashboard(url='http://127.0.0.1:5000'):
-    """Opens the specified URL, attempting to use Chrome first, then falling back to default browser."""
-    print(f"Attempting to open dashboard at {url}...")
-    specific_browser_opened = False
-
+    """Opens the specified URL in a new tab in the default web browser."""
     try:
-        if sys.platform == 'darwin': # macOS
-            try:
-                print("Attempting to open with Chrome on macOS...")
-                subprocess.run(['open', '-a', 'Google Chrome', url], check=True)
-                specific_browser_opened = True
-                print("Opened with Chrome using 'open -a' command.")
-            except (FileNotFoundError, subprocess.CalledProcessError) as e:
-                print(f"Could not open with Chrome using 'open -a': {e}. Trying default browser...")
-
-        elif sys.platform.startswith('linux'): # Linux
-            # Try google-chrome first, then chromium-browser
-            for browser_cmd in ['google-chrome', 'chromium-browser', 'chromium']:
-                try:
-                    print(f"Attempting to open with {browser_cmd} on Linux...")
-                    subprocess.run([browser_cmd, url], check=True)
-                    specific_browser_opened = True
-                    print(f"Opened with {browser_cmd} command.")
-                    break # Exit loop if successful
-                except (FileNotFoundError, subprocess.CalledProcessError) as e:
-                    print(f"Could not open with {browser_cmd}: {e}. Trying next option...")
-            if not specific_browser_opened:
-                print("Could not open with specific Chrome/Chromium commands on Linux. Trying default browser...")
-
-        elif sys.platform == 'win32': # Windows
-            try:
-                print("Attempting to open with Chrome on Windows...")
-                # The 'start chrome' command usually works well
-                subprocess.run(['start', 'chrome', url], check=True, shell=True)
-                specific_browser_opened = True
-                print("Opened with Chrome using 'start chrome' command.")
-            except (FileNotFoundError, subprocess.CalledProcessError) as e:
-                 print(f"Could not open with 'start chrome': {e}. Trying default browser...")
-
+        print(f"Attempting to open dashboard in new tab at {url}...")
+        # Use open_new_tab for better control
+        webbrowser.open_new_tab(url)
+        print("Browser tab requested.")
     except Exception as e:
-        print(f"An unexpected error occurred during platform-specific browser opening: {e}")
-
-    # Fallback to default browser if platform-specific attempt failed or wasn't applicable
-    if not specific_browser_opened:
-        try:
-            print("Falling back to default system browser...")
-            webbrowser.open(url)
-            print("Browser tab requested via default mechanism.")
-        except Exception as e:
-            print(f"Could not open browser automatically using default mechanism: {e}")
+        print(f"Could not open browser automatically: {e}")
 
 # Example usage (for testing this module directly)
 if __name__ == '__main__':
