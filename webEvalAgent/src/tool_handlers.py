@@ -21,6 +21,11 @@ from webEvalAgent.src.prompts import get_ux_evaluation_prompt
 from .log_server import send_log, start_log_server, open_log_dashboard
 # For sleep
 import asyncio
+import time  # Ensure time is imported at the top level
+
+# Constants for limiting output
+MAX_ERROR_OUTPUT_CHARS = 10000  # Maximum characters to include in error output
+MAX_TIMELINE_CHARS = 60000      # Maximum characters for the timeline section
 
 # Function to get the singleton browser manager instance
 def get_browser_manager() -> PlaywrightBrowserManager:
@@ -133,7 +138,7 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
     
     # Return a better formatted message to the MCP user
     # Including a reference to the dashboard for detailed logs
-    confirmation_text = f"{formatted_result}\n\n👁️ See the 'Operative Control Center' dashboard for detailed live logs."
+    confirmation_text = f"{formatted_result}\n\n👁️ See the 'Operative Control Center' dashboard for detailed live logs.\nUX Evaluation completed!"
     send_log(f"UX evaluation task completed for {url}.", status_emoji) # Also send confirmation to dashboard
 
     return [TextContent(
@@ -155,8 +160,8 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
         str: Formatted result with steps and conclusion
     """
     # Start with a header
-    formatted = f"📊 UX Evaluation Report for {url}\n"
-    formatted += f"📝 Task: {task}\n\n"
+    formatted = f"📊 UX Evaluation Report for {url} complete!\n"
+    formatted += f"📝 Completed Task: {task}\n\n"
     
     # Check if there's an error
     if result_str.startswith("Error:"):
@@ -164,6 +169,46 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
     
     # Flag to track if the task was successful
     task_succeeded = True
+    
+    # List to collect all agent steps with timestamps for the timeline
+    agent_steps_timeline = []
+    
+    # Helper function for formatting error lists with character limit
+    def format_error_list(items, item_formatter):
+        """Format a list of error items with character limit.
+        
+        Args:
+            items: List of error items to format
+            item_formatter: Function that takes (index, item) and returns a formatted string
+            
+        Returns:
+            str: Formatted error list with potential truncation
+        """
+        if not items:
+            return " No items found.\n"
+            
+        result = f" ({len(items)} items)\n"
+        
+        # Combine all items with line breaks
+        all_items_text = ""
+        for i, item in enumerate(items):
+            item_line = item_formatter(i, item)
+            all_items_text += item_line
+            
+        # Truncate if necessary and add indicator
+        if len(all_items_text) > MAX_ERROR_OUTPUT_CHARS:
+            truncated_text = all_items_text[:MAX_ERROR_OUTPUT_CHARS]
+            # Try to end at a newline if possible
+            last_newline = truncated_text.rfind('\n')
+            if last_newline > MAX_ERROR_OUTPUT_CHARS * 0.9:  # Only if we're not losing too much
+                truncated_text = truncated_text[:last_newline+1]
+                
+            result += truncated_text
+            result += f"  ... [Output truncated, {len(all_items_text) - len(truncated_text)} more characters not shown]\n"
+        else:
+            result += all_items_text
+            
+        return result
     
     # Try to extract action results from the string
     try:
@@ -189,6 +234,52 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
             # Format steps with emojis
             formatted += "🔍 Agent Steps:\n"
             
+            # Approximate timestamps for steps - align with browser events rather than using current time
+            # First, check if we have browser events to align with
+            earliest_browser_time = None
+            latest_browser_time = None
+            
+            # Get timeframe from console logs
+            if console_logs:
+                for log in console_logs:
+                    timestamp = log.get('timestamp', 0)
+                    if timestamp > 0:
+                        if earliest_browser_time is None or timestamp < earliest_browser_time:
+                            earliest_browser_time = timestamp
+                        if latest_browser_time is None or timestamp > latest_browser_time:
+                            latest_browser_time = timestamp
+            
+            # Check network requests too
+            if network_requests:
+                for req in network_requests:
+                    timestamp = req.get('timestamp', 0)
+                    if timestamp > 0:
+                        if earliest_browser_time is None or timestamp < earliest_browser_time:
+                            earliest_browser_time = timestamp
+                        if latest_browser_time is None or timestamp > latest_browser_time:
+                            latest_browser_time = timestamp
+                    
+                    # Also check response timestamp
+                    resp_timestamp = req.get('response_timestamp', 0)
+                    if resp_timestamp > 0:
+                        if latest_browser_time is None or resp_timestamp > latest_browser_time:
+                            latest_browser_time = resp_timestamp
+            
+            # Now set the agent step timings based on browser events
+            current_time = time.time()
+            
+            # If we have browser events, position agent steps after the browser events
+            # Otherwise, fall back to the current time approach
+            if earliest_browser_time and latest_browser_time:
+                # Position agent steps right after the browser events with a small gap (2 seconds)
+                step_base_time = latest_browser_time + 2
+                # Spread steps evenly over reasonable time period (5 sec per step)
+                step_interval = 5
+            else:
+                # Fall back to current time approach but with a better baseline
+                step_base_time = current_time - (len(action_results) * 5)
+                step_interval = 5
+            
             for i, action in enumerate(action_results):
                 # Extract the extracted_content which contains the step description
                 if "extracted_content=" in action:
@@ -200,12 +291,23 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
                     if content == "None":
                         continue
                         
+                    # Estimate timestamp for this step
+                    step_timestamp = step_base_time + (i * step_interval)
+                    
                     # Check if there's an error
                     if "error=" in action and not "error=None" in action:
                         error_part = action.split("error=")[1].split(",")[0]
                         error = error_part.strip("'\"")
                         if error != "None":
-                            formatted += f"  ❌ Step {i+1}: {error}\n"
+                            # Include the step number for error messages too
+                            error_content = f"❌ Step {i+1}: {error}"
+                            formatted += f"  {error_content}\n"
+                            # Add to timeline
+                            agent_steps_timeline.append({
+                                "type": "agent_error",
+                                "text": error_content,
+                                "timestamp": step_timestamp
+                            })
                             task_succeeded = False
                             continue
                     
@@ -223,8 +325,27 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
                     # If it has a checkmark but is a final message, replace with completion emoji
                     if content.startswith("✅") and is_final_message:
                         content = "🏁" + content[1:]
-                        
-                    formatted += f"  {content}\n"
+                    
+                    # Format the output with step number for non-final messages
+                    if not is_final_message:
+                        # Add step number with 📍 emoji for display (i+1 to start from 1)
+                        formatted_line = f"  📍 Step {i+1}: {content}"
+                        # Store the content with step number for timeline
+                        timeline_content = f"📍 Step {i+1}: {content}"
+                    else:
+                        # For final message, just use the content as is (already has 🏁)
+                        formatted_line = f"  {content}"
+                        timeline_content = content
+                    
+                    # Add to formatted output
+                    formatted += formatted_line + "\n"
+                    
+                    # Add to timeline
+                    agent_steps_timeline.append({
+                        "type": "agent_step",
+                        "text": timeline_content,
+                        "timestamp": step_timestamp
+                    })
         
         # Look for the 'done' action in the model outputs to extract the conclusion
         conclusion = ""
@@ -264,24 +385,38 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
         if conclusion:
             # Use a neutral conclusion emoji instead of success/failure indicator
             formatted += f"\n📋 Conclusion:\n{conclusion}\n"
+            
+            # Add conclusion to timeline
+            if agent_steps_timeline:
+                # Set timestamp a bit after the last step
+                conclusion_timestamp = agent_steps_timeline[-1]["timestamp"] + 2
+            else:
+                conclusion_timestamp = time.time()
+                
+            agent_steps_timeline.append({
+                "type": "conclusion",
+                "text": f"📋 Conclusion: {conclusion}",
+                "timestamp": conclusion_timestamp
+            })
         
-        # Add console errors if available
+        # First identify console errors for easier debugging
+        console_errors = []
         if console_logs:
-            console_errors = []
             for log in console_logs:
                 if log.get('type') == 'error':
                     console_errors.append(log.get('text', 'Unknown error'))
-            
-            if console_errors:
-                formatted += f"\n🔴 Console Errors ({len(console_errors)}):\n"
-                for i, error in enumerate(console_errors[:5]):  # Limit to first 5 errors
-                    formatted += f"  {i+1}. {error}\n"
-                if len(console_errors) > 5:
-                    formatted += f"  ... and {len(console_errors) - 5} more errors\n"
         
-        # Add failed network requests if available
+        # Show console errors first (if any)
+        if console_errors:
+            formatted += f"\n🔴 Console Errors:"
+            formatted += format_error_list(
+                console_errors,
+                lambda i, error: f"  {i+1}. {error}\n"
+            )
+        
+        # Identify failed network requests for easier debugging
+        failed_requests = []
         if network_requests:
-            failed_requests = []
             for req in network_requests:
                 # Check if it's an XHR/fetch request and has a failure status code (4xx or 5xx)
                 is_xhr = req.get('resourceType') == 'xhr' or req.get('resourceType') == 'fetch'
@@ -292,13 +427,130 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
                         'method': req.get('method', 'GET'),
                         'status': status
                     })
+        
+        # Show failed network requests next (if any)
+        if failed_requests:
+            formatted += f"\n❌ Failed Network Requests:"
+            formatted += format_error_list(
+                failed_requests,
+                lambda i, req: f"  {i+1}. {req['method']} {req['url']} - Status: {req['status']}\n"
+            )
+        
+        # Then show all console logs
+        all_console_logs = []
+        if console_logs:
+            all_console_logs = list(console_logs)  # Convert deque to list for easier handling
+        
+        formatted += f"\n🖥️ All Console Logs:"
+        formatted += format_error_list(
+            all_console_logs,
+            lambda i, log: f"  {i+1}. [{log.get('type', 'log')}] {log.get('text', 'Unknown message')}\n"
+        )
+        
+        # Finally show all network requests
+        all_network_requests = []
+        if network_requests:
+            all_network_requests = list(network_requests)  # Convert deque to list
+        
+        formatted += f"\n🌐 All Network Requests:"
+        formatted += format_error_list(
+            all_network_requests,
+            lambda i, req: f"  {i+1}. {req.get('method', 'GET')} {req.get('url', 'Unknown URL')} - Status: {req.get('response_status', 'N/A')}\n"
+        )
+        
+        # Add a chronological timeline of all events
+        # Combine all events into a single list
+        all_events = []
+        
+        # Add console logs to events
+        for log in all_console_logs:
+            all_events.append({
+                "type": "console",
+                "subtype": log.get('type', 'log'),
+                "text": log.get('text', 'Unknown message'),
+                "timestamp": log.get('timestamp', 0)
+            })
+        
+        # Add network requests to events
+        for req in all_network_requests:
+            # Add request
+            all_events.append({
+                "type": "network_request",
+                "method": req.get('method', 'GET'),
+                "url": req.get('url', 'Unknown URL'),
+                "timestamp": req.get('timestamp', 0)
+            })
             
-            if failed_requests:
-                formatted += f"\n🌐 Failed Network Requests ({len(failed_requests)}):\n"
-                for i, req in enumerate(failed_requests[:5]):  # Limit to first 5
-                    formatted += f"  {i+1}. {req['method']} {req['url']} - Status: {req['status']}\n"
-                if len(failed_requests) > 5:
-                    formatted += f"  ... and {len(failed_requests) - 5} more failed requests\n"
+            # Add response if available
+            if 'response_timestamp' in req:
+                all_events.append({
+                    "type": "network_response",
+                    "method": req.get('method', 'GET'),
+                    "url": req.get('url', 'Unknown URL'),
+                    "status": req.get('response_status', 'N/A'),
+                    "timestamp": req.get('response_timestamp', 0)
+                })
+        
+        # Add agent steps to events
+        all_events.extend(agent_steps_timeline)
+        
+        # Sort all events by timestamp
+        all_events.sort(key=lambda x: x.get('timestamp', 0))
+        
+        # Format the timeline
+        formatted += f"\n\n⏱️ Chronological Timeline of All Events:\n"
+        
+        timeline_text = ""
+        for event in all_events:
+            event_type = event.get('type')
+            timestamp = event.get('timestamp', 0)
+            
+            # Format timestamp as HH:MM:SS.ms
+            from datetime import datetime
+            time_str = datetime.fromtimestamp(timestamp).strftime('%H:%M:%S.%f')[:-3]
+            
+            if event_type == 'console':
+                subtype = event.get('subtype', 'log')
+                text = event.get('text', '')
+                emoji = "❌" if subtype == 'error' else "⚠️" if subtype == 'warning' else "🖥️"
+                timeline_text += f"  {time_str} {emoji} Console [{subtype}]: {text}\n"
+                
+            elif event_type == 'network_request':
+                method = event.get('method', 'GET')
+                url = event.get('url', '')
+                timeline_text += f"  {time_str} ➡️ Network Request: {method} {url}\n"
+                
+            elif event_type == 'network_response':
+                method = event.get('method', 'GET')
+                url = event.get('url', '')
+                status = event.get('status', 'N/A')
+                status_emoji = "❌" if str(status).startswith(('4', '5')) else "✅"
+                timeline_text += f"  {time_str} ⬅️ Network Response: {method} {url} - Status: {status} {status_emoji}\n"
+                
+            elif event_type == 'agent_step':
+                text = event.get('text', '')
+                timeline_text += f"  {time_str} 🤖 {text}\n"
+                
+            elif event_type == 'agent_error':
+                text = event.get('text', '')
+                timeline_text += f"  {time_str} 🤖 Agent Error: {text}\n"
+                
+            elif event_type == 'conclusion':
+                text = event.get('text', '')
+                timeline_text += f"  {time_str} 🤖 {text}\n"
+        
+        # Truncate if necessary
+        if len(timeline_text) > MAX_TIMELINE_CHARS:
+            truncated_text = timeline_text[:MAX_TIMELINE_CHARS]
+            # Try to end at a newline if possible
+            last_newline = truncated_text.rfind('\n')
+            if last_newline > MAX_TIMELINE_CHARS * 0.9:  # Only if we're not losing too much
+                truncated_text = truncated_text[:last_newline+1]
+                
+            formatted += truncated_text
+            formatted += f"  ... [Timeline truncated, {len(timeline_text) - len(truncated_text)} more characters not shown]\n"
+        else:
+            formatted += timeline_text
     
     except Exception as e:
         # If parsing fails, return a simpler message with the raw result
