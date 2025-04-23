@@ -2,7 +2,7 @@
 
 > *Let the code fix itself, you've got better things to do.*
 
-![ezgif-30319083e68077](https://github.com/user-attachments/assets/2ea8dce2-5dc1-448d-91aa-51bfabcd3511)
+![Demo](./demo.gif)
 
 
 
