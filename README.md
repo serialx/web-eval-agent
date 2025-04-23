@@ -14,7 +14,7 @@
 
 This weapon in your development arsenal transforms your Code IDE experience (Cline, Cursor):
 
-- 🌐 **Navigate your webapp** using BrowserUse (**now 2x FASTER when using our backend!**)
+- 🌐 **Navigate your webapp** using BrowserUse (2x faster with operative backend)
 - 📊 **Capture network traffic** - all requests/responses at your fingertips
 - 🚨 **Collect console errors** - nothing escapes detection
 - 🤖 **Autonomous debugging** - the Cursor agent calls the web QA agent mcp server to test if the code it wrote works as epected end-to-end.
