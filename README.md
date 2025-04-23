@@ -1,4 +1,4 @@
-# 🚀 Operative.sh WebEvalAgent MCP Server
+# 🚀 operative.sh web-eval-agent MCP Server
 
 > *Let the code fix itself, you've got better things to do.*
 
