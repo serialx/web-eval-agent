@@ -32,25 +32,6 @@ curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm
 2. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (verify tool refreshed or restart Cursor)
 3. If any issues, see Issues section below
 
-## 🛠️ Manual JSON Installation 
-1. Run `uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git webEvalAgent` with no api key first since Cursor doesn't wait for our deps to download!
-2. `npm install -g playwright`
-3. On startup, kill and then update your relevent MCP JSON: 
-
-```json
-"web-eval-agent": {
-  "command": "uvx",
-  "args": [
-    "--from",
-    "git+https://github.com/Operative-Sh/web-eval-agent.git",
-    "webEvalAgent"
-  ],
-  "env": {
-    "OPERATIVE_API_KEY": "YOUR_API_KEY"
-  }
-}
-```
-
 ## 🛠️ Manual Windows Installation (Cline) 
 ```bash
 # 1. Get your API key at operative.sh
