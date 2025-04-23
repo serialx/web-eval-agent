@@ -19,14 +19,14 @@ from mcp.types import TextContent
 from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
 # from webEvalAgent.src.browser_utils import cleanup_resources # Removed import
 from webEvalAgent.src.api_utils import validate_api_key
-from webEvalAgent.src.tool_handlers import handle_web_app_ux_evaluation
+from webEvalAgent.src.tool_handlers import handle_web_evaluation
 
 # Create the MCP server
 mcp = FastMCP("Operative")
 
 # Define the browser tools
 class BrowserTools(str, Enum):
-    WEB_APP_UX_EVALUATOR = "web_app_ux_evaluator"
+    WEB_EVAL_AGENT = "web_eval_agent"
 
 # Parse command line arguments (keeping the parser for potential future arguments)
 parser = argparse.ArgumentParser(description='Run the MCP server with browser debugging capabilities')
@@ -43,8 +43,8 @@ if api_key:
 else:
     print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
 
-@mcp.tool(name=BrowserTools.WEB_APP_UX_EVALUATOR)
-async def web_app_ux_evaluator(url: str, task: str, working_directory: str, ctx: Context) -> list[TextContent]:
+@mcp.tool(name=BrowserTools.WEB_EVAL_AGENT)
+async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Context) -> list[TextContent]:
     """Evaluate the user experience / interface of a web application.
 
     This tool allows the AI to assess the quality of user experience and interface design
@@ -67,8 +67,8 @@ async def web_app_ux_evaluator(url: str, task: str, working_directory: str, ctx:
     try:
         # Generate a new tool_call_id for this specific tool call
         tool_call_id = str(uuid.uuid4())
-        print(f"Generated new tool_call_id for web_app_ux_evaluator: {tool_call_id}")
-        return await handle_web_app_ux_evaluation(
+        print(f"Generated new tool_call_id for web_eval_agent: {tool_call_id}")
+        return await handle_web_evaluation(
             {"url": url, "task": task, "tool_call_id": tool_call_id},
             ctx,
             api_key
@@ -77,7 +77,7 @@ async def web_app_ux_evaluator(url: str, task: str, working_directory: str, ctx:
         tb = traceback.format_exc()
         return [TextContent(
             type="text",
-            text=f"Error executing web_app_ux_evaluator: {str(e)}\n\nTraceback:\n{tb}"
+            text=f"Error executing web_eval_agent: {str(e)}\n\nTraceback:\n{tb}"
         )]
 
 if __name__ == "__main__":

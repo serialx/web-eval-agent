@@ -29,7 +29,7 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 # Download, install, and remove the installer script
 curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm install.sh
 ```
-2. Unleash the agent in Cursor Agent Mode with web_app_ux_evaluator (verify tool refreshed or restart Cursor)
+2. Unleash the agent in Cursor Agent Mode with web_eval_agent (verify tool refreshed or restart Cursor)
 3. If any issues, see Issues section below
 
 ## 🛠️ Manual Windows Installation (Cline) 
@@ -37,7 +37,7 @@ curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm
 # 1. Get your API key at operative.sh
 # 2. Install uv (curl -LsSf https://astral.sh/uv/install.sh | sh)
 # 3. uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git playwright install
-# 4. Unleash the agent in Cline with web_app_ux_evaluator (may have to restart Cline) 
+# 4. Unleash the agent in Cline with web_eval_agent (may have to restart Cline) 
 ```
 ## 🚨 Issues 
 - Initial tool calls Playwright issues, fix pushed 4/14, `npm install -g playwright` playwright issues on tool call. 

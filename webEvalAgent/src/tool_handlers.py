@@ -16,7 +16,7 @@ from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
 # Only import run_browser_task from browser_utils
 from webEvalAgent.src.browser_utils import run_browser_task, console_log_storage, network_request_storage
 # Import your prompt function
-from webEvalAgent.src.prompts import get_ux_evaluation_prompt
+from webEvalAgent.src.prompts import get_web_evaluation_prompt
 # Import log server functions directly
 from .log_server import send_log, start_log_server, open_log_dashboard
 # For sleep
@@ -39,8 +39,8 @@ def get_browser_manager() -> PlaywrightBrowserManager:
     """
     return PlaywrightBrowserManager.get_instance()
 
-async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, api_key: str) -> list[TextContent]:
-    """Handle web_app_ux_evaluator tool calls
+async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key: str) -> list[TextContent]:
+    """Handle web_eval_agent tool calls
     
     This function evaluates the user experience of a web application by using
     the browser-use agent to perform specific tasks and analyze the interaction flow.
@@ -89,7 +89,7 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
         )]
     
     # Send initial status to dashboard
-    send_log(f"🚀 Received UX evaluation task: {task}", "🚀")
+    send_log(f"🚀 Received web evaluation task: {task}", "🚀")
     send_log(f"🔗 Target URL: {url}", "🔗")
 
     # Get the singleton browser manager and initialize it
@@ -100,7 +100,7 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
         await browser_manager.initialize()
         
     # Get the evaluation task prompt
-    evaluation_task = get_ux_evaluation_prompt(url, task)
+    evaluation_task = get_web_evaluation_prompt(url, task)
     send_log(f"📝 Generated evaluation prompt.", "📝")
     
     # Run the browser task
@@ -138,8 +138,8 @@ async def handle_web_app_ux_evaluation(arguments: Dict[str, Any], ctx: Context, 
     
     # Return a better formatted message to the MCP user
     # Including a reference to the dashboard for detailed logs
-    confirmation_text = f"{formatted_result}\n\n👁️ See the 'Operative Control Center' dashboard for detailed live logs.\nUX Evaluation completed!"
-    send_log(f"UX evaluation task completed for {url}.", status_emoji) # Also send confirmation to dashboard
+    confirmation_text = f"{formatted_result}\n\n👁️ See the 'Operative Control Center' dashboard for detailed live logs.\nWeb Evaluation completed!"
+    send_log(f"Web evaluation task completed for {url}.", status_emoji) # Also send confirmation to dashboard
 
     return [TextContent(
         type="text",
@@ -160,7 +160,7 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
         str: Formatted result with steps and conclusion
     """
     # Start with a header
-    formatted = f"📊 UX Evaluation Report for {url} complete!\n"
+    formatted = f"📊 Web Evaluation Report for {url} complete!\n"
     formatted += f"📝 Completed Task: {task}\n\n"
     
     # Check if there's an error
