@@ -21,16 +21,16 @@ This weapon in your development arsenal transforms your Code IDE experience (Cli
 
 ## 🏁 Quick Start (macOS/Linux)
 
-
-1. Run the installer after [getting an api key (free)](https://www.operative.sh) 
+1. Pre-requisites: brew: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`, npm: (`brew install npm`), jq: `brew install jq` 
+2. Run the installer after [getting an api key (free)](https://www.operative.sh) 
 ```bash
 # Feel welcome to inspect the installer script like so:
 # curl -LSf https://operative.sh/install.sh | less -N
 # Download, install, and remove the installer script
 curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm install.sh
 ```
-2. Unleash the agent in Cursor Agent Mode with web_eval_agent (verify tool refreshed or restart Cursor)
-3. If any issues, see Issues section below
+3. Unleash the agent in Cursor Agent Mode with web_eval_agent (verify tool refreshed or restart Cursor)
+4. If any issues, see Issues section below
 
 ## 🛠️ Manual Windows Installation (Cline) 
 ```bash
