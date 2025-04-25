@@ -2,6 +2,7 @@
 
 import httpx
 import asyncio
+from .env_utils import get_backend_url
 
 async def validate_api_key(api_key: str) -> bool:
     """
@@ -16,7 +17,7 @@ async def validate_api_key(api_key: str) -> bool:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                "https://operative-backend.onrender.com/api/validate-key",
+                get_backend_url("api/validate-key"),
                 headers={
                     "x-operative-api-key": api_key
                 }

@@ -256,8 +256,10 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             send_log(f"Generated tool_call_id: {tool_call_id}", "🆔", log_type='status') # Type: status
 
         # --- LLM Setup ---
+        from .env_utils import get_backend_url
+        
         llm = ChatAnthropic(model="claude-3-5-sonnet-20240620",
-            base_url="https://operative-backend.onrender.com/v1beta/models/claude-3-5-sonnet-20240620",
+            base_url=get_backend_url(f"v1beta/models/claude-3-5-sonnet-20240620"),
             extra_headers={
                 "x-operative-api-key": api_key,
                 "x-operative-tool-call-id": tool_call_id
