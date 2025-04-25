@@ -53,7 +53,7 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
     Before this tool is used, the web application should already be running locally in a separate terminal.
 
     Args:
-        url: Required. The localhost URL of the web application to evaluate, including the port number. 
+        url: Required. The localhost URL of the web application to evaluate, including the port number.
         task: Required. The specific UX/UI aspect to test (e.g., "test the checkout flow",
              "evaluate the navigation menu usability", "check form validation feedback")
              If no task is provided, the tool will high level evaluate the web application
@@ -64,6 +64,13 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
                          observations, issues found, and recommendations for improvement
                          Do not save this information to any file, but only return it to the agent
     """
+    is_valid = await validate_api_key(api_key)
+
+    if not is_valid:
+        error_message_str = "❌ Error: API Key validation failed when running the tool.\n"
+        error_message_str += "   Reason: Free tier limit reached.\n"
+        error_message_str += "   👉 Please subscribe at https://operative.sh to continue."
+        return [TextContent(type="text", text=error_message_str)]
     try:
         # Generate a new tool_call_id for this specific tool call
         tool_call_id = str(uuid.uuid4())
