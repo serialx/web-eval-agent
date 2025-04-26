@@ -1,6 +1,6 @@
 # 🚀 operative.sh web-eval-agent MCP Server
 
-> *Let the code fix itself, you've got better things to do.*
+> *Let the coding agent debug itself, you've got better things to do.*
 
 ![Demo](./demo.gif)
 
