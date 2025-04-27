@@ -80,7 +80,7 @@ curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm
   01:17:45.038 🤖 🏁 Flow finished – deletion verified
   01:17:47.038 🤖 📋 Conclusion repeated above
 👁️  See the “Operative Control Center” dashboard for live logs.
-
+```
 
 ---
 
