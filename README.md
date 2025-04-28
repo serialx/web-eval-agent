@@ -13,8 +13,8 @@
 ## ⚡ Features
 
 - 🌐 **Navigate your webapp** using BrowserUse (2x faster with operative backend)
-- 📊 **Capture network traffic** - all requests/responses at your fingertips
-- 🚨 **Collect console errors** - nothing escapes detection
+- 📊 **Capture network traffic** - requests are intelligently filtered and returned into the context window
+- 🚨 **Collect console errors** - captures logs & errors
 - 🤖 **Autonomous debugging** - the Cursor agent calls the web QA agent mcp server to test if the code it wrote works as epected end-to-end.
 
 ## 🏁 Quick Start (macOS/Linux)
