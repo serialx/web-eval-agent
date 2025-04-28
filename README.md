@@ -12,8 +12,6 @@
 
 ## ⚡ Features
 
-This weapon in your development arsenal transforms your Code IDE experience (Cline, Cursor):
-
 - 🌐 **Navigate your webapp** using BrowserUse (2x faster with operative backend)
 - 📊 **Capture network traffic** - all requests/responses at your fingertips
 - 🚨 **Collect console errors** - nothing escapes detection
