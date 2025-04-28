@@ -27,8 +27,8 @@
 # Download, install, and remove the installer script
 curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm install.sh
 ```
-3. Unleash the agent in Cursor Agent Mode with web_eval_agent (verify tool refreshed or restart Cursor)
-4. If any issues, see Issues section below
+3. Visit your favorite IDE and restart to apply the changes
+4. Send a prompt in chat mode to call the web eval agent tool!
 
 ## 🛠️ Manual Windows Installation (Cline) 
 ```bash
