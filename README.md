@@ -8,7 +8,7 @@
 
 ## 🔥 Supercharge Your Debugging
 
-[operative.sh](https://www.operative.sh)'s MCP Server unleashes LLM-powered agents to autonomously execute and debug web apps directly in your code editor.
+[operative.sh](https://www.operative.sh)'s MCP Server launches a browser-use powered agent to autonomously execute and debug web apps directly in your code editor.
 
 ## ⚡ Features
 
