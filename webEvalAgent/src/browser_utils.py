@@ -33,7 +33,6 @@ from langchain.globals import set_verbose
 
 # This prevents the browser window from stealing focus during execution.
 async def _no_bring_to_front(self, *args, **kwargs):
-    print("Skipping bring_to_front call.") # Optional: for debugging
     return None
 
 PlaywrightPage.bring_to_front = _no_bring_to_front
@@ -148,7 +147,6 @@ async def handle_response(response):
         try:
             body_buffer = await response.body()
             body_size = len(body_buffer) if body_buffer else 0
-        except PlaywrightError as e: print(f"Warning: Could not get response body size for {url}: {e}")
         except Exception as e: print(f"Warning: Unexpected error getting response body size for {url}: {e}")
 
         for req in network_request_storage:
@@ -354,9 +352,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             if original_create_context is None:
                  raise RuntimeError("Original _create_context not stored correctly")
 
-            # print("Patched BrowserContext._create_context called...")
             raw_playwright_context: PlaywrightBrowserContext = await original_create_context(self, browser_pw)
-            # print(f"Original _create_context created raw context: {raw_playwright_context}")
             send_log("BrowserContext patched, attaching log handlers...", "🔧", log_type='status') # Type: status
 
             if raw_playwright_context:
@@ -371,7 +367,6 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                 # Set up agent controls for new pages
                 raw_playwright_context.on("page", lambda page: asyncio.create_task(setup_page_agent_controls(page)))
                 
-                # print("Listeners attached to raw Playwright context.")
                 send_log("Log listeners and agent controls attached.", "👂", log_type='status') # Type: status
             else:
                  send_log("Original _create_context did not return a context.", "⚠️", log_type='status') # Type: status
@@ -379,7 +374,6 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             return raw_playwright_context
 
         BrowserContext._create_context = patched_create_context
-        # print("Patched BrowserContext._create_context.")
 
         # --- Ensure Tool Call ID ---
         if tool_call_id is None:
