@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import asyncio
 import io
 import json
 import logging
@@ -9,6 +10,7 @@ import warnings
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any, Tuple, List, Optional
 from collections import deque
+import pathlib # Added for file reading
 
 # Import log server function
 from .log_server import send_log
@@ -165,6 +167,128 @@ async def handle_response(response):
         # Send error to dashboard with type 'status' or 'agent'
         send_log(f"Error handling response event for {url}: {e}", "❌", log_type='status')
 
+# Read the JavaScript overlay code from the file
+try:
+    overlay_js_path = pathlib.Path(__file__).parent / 'agent_overlay.js'
+    AGENT_CONTROL_OVERLAY_JS = overlay_js_path.read_text(encoding='utf-8')
+except Exception as e:
+    send_log(f"CRITICAL ERROR: Failed to read agent_overlay.js: {e}", "🚨", log_type='status')
+    AGENT_CONTROL_OVERLAY_JS = "console.error('Failed to load agent overlay script');" # Fallback
+
+# Function to inject the agent control overlay into a page
+async def inject_agent_control_overlay(page: PlaywrightPage):
+    """Inject the agent control overlay into a page."""
+    try:
+        # First try with evaluate
+        try:
+            send_log("Attempting to inject overlay with page.evaluate()...", "🔄", log_type='status')
+            await page.evaluate(AGENT_CONTROL_OVERLAY_JS)
+            send_log("Agent control overlay injected with page.evaluate().", "🎮", log_type='status')
+            return
+        except Exception as e1:
+            send_log(f"Failed to inject with page.evaluate(): {e1}", "⚠️", log_type='status')
+            
+        # Try with add_script_tag as fallback
+        try:
+            send_log("Attempting to inject overlay with page.add_script_tag()...", "🔄", log_type='status')
+            await page.add_script_tag(content=AGENT_CONTROL_OVERLAY_JS)
+            send_log("Agent control overlay injected with page.add_script_tag().", "🎮", log_type='status')
+            return
+        except Exception as e2:
+            send_log(f"Failed to inject with page.add_script_tag(): {e2}", "⚠️", log_type='status')
+            
+        # Try with evaluate_handle as last resort
+        try:
+            send_log("Attempting to inject overlay with page.evaluate_handle()...", "🔄", log_type='status')
+            await page.evaluate_handle(f"() => {{ {AGENT_CONTROL_OVERLAY_JS} }}")
+            send_log("Agent control overlay injected with page.evaluate_handle().", "🎮", log_type='status')
+            return
+        except Exception as e3:
+            send_log(f"Failed to inject with page.evaluate_handle(): {e3}", "⚠️", log_type='status')
+            raise Exception(f"All injection methods failed: {e1}, {e2}, {e3}")
+            
+    except Exception as e:
+        send_log(f"Failed to inject agent control overlay: {e}", "❌", log_type='status')
+
+# Function to set up agent control functions for a page
+async def setup_page_agent_controls(page: PlaywrightPage):
+    """Set up agent control functions for a page."""
+    global agent_instance
+    
+    try:
+        # Expose agent control functions to the page
+        await page.expose_function('pauseAgent', lambda: pause_agent())
+        await page.expose_function('resumeAgent', lambda: resume_agent())
+        await page.expose_function('stopAgent', lambda: stop_agent())
+        await page.expose_function('getAgentState', lambda: get_agent_state())
+        
+        # Inject the agent control overlay
+        await inject_agent_control_overlay(page)
+        
+        # Add navigation listener to re-inject overlay after navigation
+        async def handle_frame_navigation(frame):
+            if frame is page.main_frame:
+                send_log(f"Page navigated to: {page.url}", "🧭", log_type='status')
+                # Wait a bit for the page to stabilize after navigation
+                await asyncio.sleep(0.5)
+                await inject_agent_control_overlay(page)
+        
+        # Listen for framenavigated events
+        page.on("framenavigated", lambda frame: asyncio.create_task(handle_frame_navigation(frame)))
+        send_log("Added navigation listener to page", "🔄", log_type='status')
+        
+        # Also listen for load events to re-inject the overlay
+        async def handle_load():
+            send_log(f"Page load event on: {page.url}", "🔄", log_type='status')
+            await asyncio.sleep(0.5)  # Wait a bit for the page to stabilize
+            await inject_agent_control_overlay(page)
+            
+        page.on("load", lambda: asyncio.create_task(handle_load()))
+        send_log("Added load event listener to page", "🔄", log_type='status')
+        
+    except Exception as e:
+        send_log(f"Failed to set up agent controls: {e}", "❌", log_type='status')
+
+# Agent control functions
+def pause_agent():
+    """Pause the agent."""
+    global agent_instance
+    if agent_instance:
+        agent_instance.pause()
+        send_log("Agent paused by user via overlay", "⏸️", log_type='status')
+        return True
+    return False
+
+def resume_agent():
+    """Resume the agent."""
+    global agent_instance
+    if agent_instance:
+        agent_instance.resume()
+        send_log("Agent resumed by user via overlay", "▶️", log_type='status')
+        return True
+    return False
+
+def stop_agent():
+    """Stop the agent."""
+    global agent_instance
+    if agent_instance:
+        agent_instance.stop()
+        send_log("Agent stopped by user via overlay", "⏹️", log_type='status')
+        return True
+    return False
+
+def get_agent_state():
+    """Get the agent state."""
+    global agent_instance
+    if agent_instance:
+        return {
+            'paused': agent_instance.state.paused,
+            'stopped': agent_instance.state.stopped
+        }
+    return {
+        'paused': False,
+        'stopped': False
+    }
 
 async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> str:
     """
@@ -226,7 +350,6 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             # Already patched, just ensure we have a reference for finally
             local_original_create_context = original_create_context
 
-
         async def patched_create_context(self: BrowserContext, browser_pw: PlaywrightBrowser) -> PlaywrightBrowserContext:
             if original_create_context is None:
                  raise RuntimeError("Original _create_context not stored correctly")
@@ -240,8 +363,16 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                 raw_playwright_context.on("console", handle_console_message) # Handlers now send correct type
                 raw_playwright_context.on("request", handle_request)         # Handlers now send correct type
                 raw_playwright_context.on("response", handle_response)       # Handlers now send correct type
+                
+                # Set up agent controls for existing pages
+                for page in raw_playwright_context.pages:
+                    await setup_page_agent_controls(page)
+                
+                # Set up agent controls for new pages
+                raw_playwright_context.on("page", lambda page: asyncio.create_task(setup_page_agent_controls(page)))
+                
                 # print("Listeners attached to raw Playwright context.")
-                send_log("Log listeners attached.", "👂", log_type='status') # Type: status
+                send_log("Log listeners and agent controls attached.", "👂", log_type='status') # Type: status
             else:
                  send_log("Original _create_context did not return a context.", "⚠️", log_type='status') # Type: status
 
@@ -268,9 +399,32 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
         # --- Agent Callback ---
         async def state_callback(browser_state, agent_output, step_number):
+            global agent_instance # Ensure we have access to the agent
+
             # Send agent output with type 'agent'
             send_log(f"Step {step_number}", "📍", log_type='agent')
             send_log(f"URL: {browser_state.url}", "🔗", log_type='agent')
+
+            # Re-inject the overlay after each step using the agent's current page
+            try:
+                if agent_instance and agent_instance.browser_context:
+                    # Use the provided helper method to get the current page
+                    current_page: Optional[PlaywrightPage] = await agent_instance.browser_context.get_current_page()
+
+                    if current_page:
+                        send_log(f"Re-injecting overlay after step {step_number} into page {current_page.url}", "🔄", log_type='status')
+                        await inject_agent_control_overlay(current_page)
+                    else:
+                        send_log(f"Could not get current page from agent context for step {step_number}", "⚠️", log_type='status')
+                else:
+                     send_log(f"Agent instance or browser context not available for step {step_number}", "⚠️", log_type='status')
+
+            except Exception as e:
+                # Add traceback for debugging other potential errors
+                import traceback
+                tb_str = traceback.format_exc()
+                send_log(f"Failed to re-inject overlay after step: {e}\n{tb_str}", "⚠️", log_type='status')
+
             # Ensure agent_output is a string before logging
             output_str = str(agent_output)
             send_log(f"Agent Output: {output_str}", "💬", log_type='agent')
