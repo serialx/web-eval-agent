@@ -41,8 +41,6 @@ curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm
 - Initial tool calls Playwright issues, fix pushed 4/14, `npm install -g playwright` playwright issues on tool call. 
 - Any issues feel free to open an Issue on this repo!
 
-## [Join Discord Community](https://discord.gg/7Vs3AU2uSV) 
-
 ## Changelog 
 - 4/29 - Agent overlay update - pause/play/stop agent run in the browser
 
