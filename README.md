@@ -83,6 +83,11 @@ curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm
 👁️  See the “Operative Control Center” dashboard for live logs.
 ```
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Operative-Sh/web-eval-agent&type=Date)](https://www.star-history.com/#Operative-Sh/web-eval-agent&Date)
+
+
 ---
 
 Built with <3 @ [operative.sh](https://www.operative.sh)
