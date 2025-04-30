@@ -366,43 +366,79 @@
             node === host ||
             (node && (host.contains(node) || (node.getRootNode() === panelRoot)));
 
-        // Patch elementFromPoint --------------------------------------------------
-        const origEFP  = document.elementFromPoint.bind(document);
-        const origEFPS = document.elementsFromPoint?.bind(document); // Use optional chaining
+    // Patch elementFromPoint / elementsFromPoint for Document and ShadowRoot ----
 
-        /** Return the first element *not* inside the control overlay. */
-        function safeElementFromPoint(x, y) {
-            let el = origEFP(x, y);
-            if (!isInsidePanel(el)) return el;        // usual case
+    // ---- generic helper that works on any root object ----
+    function makeSafeElementFromPoint(root, origEFP, origEFPS) {
+      // Note: We need the original EFP from the specific root's prototype
+      const originalRootEFP = origEFP || root.elementFromPoint;
+      return function safeEFP(x, y) {
+        // `this` is the root (Document or ShadowRoot instance)
+        let el = originalRootEFP.call(this, x, y); // Use call() with the correct context
+        if (!isInsidePanel(el)) return el;
 
-            // Temporarily remove the panel from hit-testing,
-            // look again, then restore normal behaviour.
-            const originalPointerEvents = host.style.pointerEvents; // Store original value
-            host.style.pointerEvents = 'none';
-            try   { el = origEFP(x, y); }
-            finally { host.style.pointerEvents = originalPointerEvents; } // Restore original
-            return el;
+        const original = host.style.pointerEvents;
+        host.style.pointerEvents = 'none';
+        try   { el = originalRootEFP.call(this, x, y); } // Use call() again
+        finally { host.style.pointerEvents = original; }
+        return el;
+      };
+    }
+
+    function makeSafeElementsFromPoint(root, origEFP, origEFPS) {
+       // Note: We need the original EFPs from the specific root's prototype
+      const originalRootEFP = origEFP || root.elementFromPoint;
+      const originalRootEFPS = origEFPS || root.elementsFromPoint;
+      // Fallback function using the single safe EFP if elementsFromPoint doesn't exist
+      const fallbackEFP = makeSafeElementFromPoint(root, originalRootEFP, originalRootEFPS);
+
+      return function safeEFPS(x, y) {
+        // `this` is the root (Document or ShadowRoot instance)
+        if (!originalRootEFPS) return [fallbackEFP.call(this, x, y)]; // Use call() for fallback
+
+        const original = host.style.pointerEvents;
+        host.style.pointerEvents = 'none';
+        let elements = [];
+        try {
+          // Use call() with the correct context
+          elements = originalRootEFPS.call(this, x, y).filter(el => !isInsidePanel(el));
+        } finally {
+          host.style.pointerEvents = original;
         }
+        return elements;
+      };
+    }
 
-        /** Same idea for the multi-select version. */
-        function safeElementsFromPoint(x, y) {
-            if (!origEFPS) return [safeElementFromPoint(x, y)]; // Fallback if elementsFromPoint doesn't exist
+    // ---- install on Document ----
+    const docOrigEFP = document.elementFromPoint;
+    const docOrigEFPS = document.elementsFromPoint;
 
-            const originalPointerEvents = host.style.pointerEvents; // Store original value
-            host.style.pointerEvents = 'none';
-            let elements = [];
-            try   { elements = origEFPS(x, y).filter(el => !isInsidePanel(el)); }
-            finally { host.style.pointerEvents = originalPointerEvents; } // Restore original
-            return elements;
-        }
+    document.elementFromPoint = makeSafeElementFromPoint(document, docOrigEFP, docOrigEFPS);
+    console.log('Patched document.elementFromPoint');
 
-        // Install the shims
-        document.elementFromPoint  = safeElementFromPoint;
-        if (origEFPS) {
-            document.elementsFromPoint = safeElementsFromPoint;
-        }
-        console.log('Patched elementFromPoint and elementsFromPoint');
-        // --- End elementFromPoint Patch ---
+    if (docOrigEFPS) {
+      document.elementsFromPoint = makeSafeElementsFromPoint(document, docOrigEFP, docOrigEFPS);
+      console.log('Patched document.elementsFromPoint');
+    }
+
+    // ---- install on *all* ShadowRoots (via prototype) ----
+    if (typeof ShadowRoot !== "undefined" && ShadowRoot.prototype) {
+      const SRproto = ShadowRoot.prototype;
+      const protoOrigEFP = SRproto.elementFromPoint; // Get originals from prototype
+      const protoOrigEFPS = SRproto.elementsFromPoint;
+
+      // Patch prototype methods
+      SRproto.elementFromPoint = makeSafeElementFromPoint(SRproto, protoOrigEFP, protoOrigEFPS);
+      console.log('Patched ShadowRoot.prototype.elementFromPoint');
+
+      if (protoOrigEFPS) {
+        SRproto.elementsFromPoint = makeSafeElementsFromPoint(SRproto, protoOrigEFP, protoOrigEFPS);
+        console.log('Patched ShadowRoot.prototype.elementsFromPoint');
+      }
+    } else {
+        console.warn('ShadowRoot prototype not available for patching.');
+    }
+    // --- End Patch ---
 
         // --- Ensure Host is Last Element (for stacking) ---
         (function bringPanelToFront() {
