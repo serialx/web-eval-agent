@@ -7,6 +7,7 @@ from flask_socketio import SocketIO
 import logging
 import os
 from datetime import datetime
+import multiprocessing
 
 # --- Async mode selection ---
 _async_mode = 'threading'
@@ -66,14 +67,16 @@ def send_log(message: str, emoji: str = "➡️", log_type: str = 'agent'):
         print(f"LOG SERVER EMIT FAILED ({log_type}): {emoji} {message} (Error: {e})")
 
 
-def start_log_server(host='127.0.0.1', port=5009):
-    """Starts the Flask-SocketIO server in a background thread."""
-    def run_server():
-        # print(f"Starting Operative Control Center server on http://{host}:{port}")
-        # Use eventlet or gevent for production? For local dev, default Flask dev server is fine.
-        # Setting log_output=False to reduce console noise from SocketIO itself
-        socketio.run(app, host=host, port=port, log_output=False, use_reloader=False, allow_unsafe_werkzeug=True)
+# Define run_server at the module level
+def run_server(host='127.0.0.1', port=5009):
+    # print(f"Starting Operative Control Center server on http://{host}:{port}")
+    # Use eventlet or gevent for production? For local dev, default Flask dev server is fine.
+    # Setting log_output=False to reduce console noise from SocketIO itself
+    socketio.run(app, host=host, port=port, log_output=False, use_reloader=False, allow_unsafe_werkzeug=True)
 
+
+def start_log_server(host='127.0.0.1', port=5009):
+    """Starts the Flask-SocketIO server in a separate process."""
     # Check if templates directory exists
     template_dir = os.path.join(os.path.dirname(__file__), '../templates')
     static_dir = os.path.join(template_dir, 'static')
@@ -168,12 +171,15 @@ def start_log_server(host='127.0.0.1', port=5009):
 </html>''')
         # print(f"Created modern index.html with Tailwind CSS at {index_path}")
 
-
-    thread = threading.Thread(target=run_server, daemon=True)
-    thread.start()
-    # print("Log server thread started.")
+    # Start the server in a separate process instead of a thread
+    # Pass host and port as arguments to the top-level run_server
+    server_process = multiprocessing.Process(target=run_server, args=(host, port))
+    server_process.daemon = True
+    server_process.start()
+    
+    # print("Log server process started.")
     # Send initial status message
-    send_log("Log server thread started.", "🚀", log_type='status') # Add type
+    send_log("Log server process started.", "🚀", log_type='status')
 
 def open_log_dashboard(url='http://127.0.0.1:5009'):
     """Opens the specified URL in a new tab in the default web browser."""
