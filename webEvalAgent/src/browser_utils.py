@@ -179,27 +179,27 @@ async def inject_agent_control_overlay(page: PlaywrightPage):
     try:
         # First try with evaluate
         try:
-            send_log("Attempting to inject overlay with page.evaluate()...", "🔄", log_type='status')
+            # send_log("Attempting to inject overlay with page.evaluate()...", "🔄", log_type='status')
             await page.evaluate(AGENT_CONTROL_OVERLAY_JS)
-            send_log("Agent control overlay injected with page.evaluate().", "🎮", log_type='status')
+            # send_log("Agent control overlay injected with page.evaluate().", "🎮", log_type='status')
             return
         except Exception as e1:
             send_log(f"Failed to inject with page.evaluate(): {e1}", "⚠️", log_type='status')
             
         # Try with add_script_tag as fallback
         try:
-            send_log("Attempting to inject overlay with page.add_script_tag()...", "🔄", log_type='status')
+            # send_log("Attempting to inject overlay with page.add_script_tag()...", "🔄", log_type='status')
             await page.add_script_tag(content=AGENT_CONTROL_OVERLAY_JS)
-            send_log("Agent control overlay injected with page.add_script_tag().", "🎮", log_type='status')
+            # send_log("Agent control overlay injected with page.add_script_tag().", "🎮", log_type='status')
             return
         except Exception as e2:
             send_log(f"Failed to inject with page.add_script_tag(): {e2}", "⚠️", log_type='status')
             
         # Try with evaluate_handle as last resort
         try:
-            send_log("Attempting to inject overlay with page.evaluate_handle()...", "🔄", log_type='status')
+            # send_log("Attempting to inject overlay with page.evaluate_handle()...", "🔄", log_type='status')
             await page.evaluate_handle(f"() => {{ {AGENT_CONTROL_OVERLAY_JS} }}")
-            send_log("Agent control overlay injected with page.evaluate_handle().", "🎮", log_type='status')
+            # send_log("Agent control overlay injected with page.evaluate_handle().", "🎮", log_type='status')
             return
         except Exception as e3:
             send_log(f"Failed to inject with page.evaluate_handle(): {e3}", "⚠️", log_type='status')
@@ -353,7 +353,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                  raise RuntimeError("Original _create_context not stored correctly")
 
             raw_playwright_context: PlaywrightBrowserContext = await original_create_context(self, browser_pw)
-            send_log("BrowserContext patched, attaching log handlers...", "🔧", log_type='status') # Type: status
+            # send_log("BrowserContext patched, attaching log handlers...", "🔧", log_type='status') # Type: status
 
             if raw_playwright_context:
                 raw_playwright_context.on("console", handle_console_message) # Handlers now send correct type

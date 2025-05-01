@@ -1,7 +1,7 @@
 [project]
 name = "web-eval-agent"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.1.1"
+description = "Operative AI - WebAgentEval Agent"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -24,3 +24,6 @@ webEvalAgent = "webEvalAgent.mcp_server:main"
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+webEvalAgent = ["templates/**", "src/agent_overlay.js"]
