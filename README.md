@@ -37,8 +37,12 @@ curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm
 # 3. uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git playwright install
 # 4. Unleash the agent in Cline with web_eval_agent (may have to restart Cline) 
 ```
+## 🔃 Updating 
+- `uv clean`
+- refresh MCP server 
+
 ## 🚨 Issues 
-- Initial tool calls Playwright issues, fix pushed 4/14, `npm install -g playwright` playwright issues on tool call. 
+- Initial tool calls Playwright issues, fix pushed 4/14, `npm install -g playwright` playwright issues on tool call.
 - Any issues feel free to open an Issue on this repo!
 
 ## Changelog 
