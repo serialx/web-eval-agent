@@ -76,7 +76,7 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     """
     # Initialize log server immediately (if not already running)
     try:
-        stop_log_server() 
+        # stop_log_server() 
         start_log_server()
         # Give the server a moment to start
         await asyncio.sleep(1)
