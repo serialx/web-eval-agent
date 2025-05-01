@@ -9,7 +9,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, List, Any
 
 from mcp.server.fastmcp import Context
-from mcp.types import TextContent
+from mcp.types import TextContent, ImageContent
 
 # Import the manager directly
 from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
@@ -104,16 +104,23 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     send_log(f"📝 Generated evaluation prompt.", "📝")
     
     # Run the browser task
-    agent_final_result = None
+    agent_result_data = None
     try:
-        # run_browser_task now only returns the final result string
-        agent_final_result = await run_browser_task(
+        # run_browser_task now returns a dictionary with result and screenshots
+        agent_result_data = await run_browser_task(
             evaluation_task,
             "claude-3-7-sonnet-latest", # This model name might need update based on browser_utils
             ctx,
             tool_call_id=tool_call_id,
             api_key=api_key
         )
+        
+        # Extract the final result string
+        agent_final_result = agent_result_data.get("result", "No result provided")
+        screenshots = agent_result_data.get("screenshots", [])
+        
+        # Log the number of screenshots captured
+        send_log(f"📸 Captured {len(screenshots)} screenshots during evaluation", "📸")
 
         # Optional: Send the final result from the agent to the dashboard as well
         send_log(f"✅ Agent final result: {agent_final_result}", "✅")
@@ -141,10 +148,24 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     confirmation_text = f"{formatted_result}\n\n👁️ See the 'Operative Control Center' dashboard for detailed live logs.\nWeb Evaluation completed!"
     send_log(f"Web evaluation task completed for {url}.", status_emoji) # Also send confirmation to dashboard
 
-    return [TextContent(
+    # Create response with both text and screenshots
+    response = [TextContent(
         type="text",
         text=confirmation_text
     )]
+    
+    # Add screenshots to the response if available
+    screenshots = agent_result_data.get("screenshots", [])
+    for screenshot_data in screenshots:
+        response.append(
+            ImageContent(
+                type="image",
+                data=screenshot_data["screenshot"],
+                mimeType="image/jpeg"
+            )
+        )
+    
+    return response
 
 def format_agent_result(result_str: str, url: str, task: str, console_logs=None, network_requests=None) -> str:
     """Format the agent result in a readable way with emojis.

@@ -7,6 +7,7 @@ import json
 import logging
 import uuid
 import warnings
+import base64
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any, Tuple, List, Optional
 from collections import deque
@@ -87,6 +88,9 @@ def should_log_network_request(url: str) -> bool:
 # --- Log Storage (Global within this module using deque) ---
 console_log_storage: deque = deque(maxlen=MAX_LOG_ENTRIES)
 network_request_storage: deque = deque(maxlen=MAX_LOG_ENTRIES)
+
+# --- Screenshot Storage (Global within this module) ---
+screenshot_storage: List[Dict[str, Any]] = []
 
 # --- Log Handlers (Use deque's append and send_log with type) ---
 async def handle_console_message(message):
@@ -288,7 +292,7 @@ def get_agent_state():
         'stopped': False
     }
 
-async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> str:
+async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> Dict[str, Any]:
     """
     Run a task using browser-use agent, sending logs to the dashboard.
 
@@ -302,7 +306,10 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
     Returns:
         str: Agent's final result (stringified).
     """
-    global agent_instance, console_log_storage, network_request_storage, original_create_context
+    global agent_instance, console_log_storage, network_request_storage, screenshot_storage, original_create_context
+    
+    # Clear screenshot storage for this run
+    screenshot_storage.clear()
     import traceback # Make sure traceback is imported for error logging
 
     # --- Clear Logs for this Run ---
@@ -393,19 +400,34 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
         # --- Agent Callback ---
         async def state_callback(browser_state, agent_output, step_number):
-            global agent_instance # Ensure we have access to the agent
+            global agent_instance, screenshot_storage # Ensure we have access to the agent and screenshot storage
 
             # Send agent output with type 'agent'
             send_log(f"Step {step_number}", "📍", log_type='agent')
             send_log(f"URL: {browser_state.url}", "🔗", log_type='agent')
 
-            # Re-inject the overlay after each step using the agent's current page
+            # Capture screenshot at each step
             try:
                 if agent_instance and agent_instance.browser_context:
                     # Use the provided helper method to get the current page
                     current_page: Optional[PlaywrightPage] = await agent_instance.browser_context.get_current_page()
 
                     if current_page:
+                        # Take screenshot
+                        screenshot_bytes = await current_page.screenshot(type='jpeg', quality=80)
+                        screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                        
+                        # Store screenshot with metadata
+                        screenshot_storage.append({
+                            'step': step_number,
+                            'url': browser_state.url,
+                            'timestamp': asyncio.get_event_loop().time(),
+                            'screenshot': screenshot_base64
+                        })
+                        
+                        send_log(f"Screenshot captured for step {step_number}", "📸", log_type='status')
+                        
+                        # Re-inject the overlay
                         send_log(f"Re-injecting overlay after step {step_number} into page {current_page.url}", "🔄", log_type='status')
                         await inject_agent_control_overlay(current_page)
                     else:
@@ -417,7 +439,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                 # Add traceback for debugging other potential errors
                 import traceback
                 tb_str = traceback.format_exc()
-                send_log(f"Failed to re-inject overlay after step: {e}\n{tb_str}", "⚠️", log_type='status')
+                send_log(f"Failed to capture screenshot or re-inject overlay after step: {e}\n{tb_str}", "⚠️", log_type='status')
 
             # Ensure agent_output is a string before logging
             output_str = str(agent_output)
@@ -440,13 +462,19 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         # Convert AgentHistoryList to a serializable format (just stringify)
         serialized_result = str(agent_result)
 
-        # Return only the agent result
-        return serialized_result
+        # Return the agent result and screenshots
+        return {
+            "result": serialized_result,
+            "screenshots": screenshot_storage
+        }
 
     except Exception as e:
         error_message = f"Error in run_browser_task: {e}\n{traceback.format_exc()}"
         send_log(error_message, "❌", log_type='status') # Type: status
-        return error_message
+        return {
+            "result": error_message,
+            "screenshots": screenshot_storage
+        }
     finally:
         # --- Cleanup ---
         # Ensure patch is restored
