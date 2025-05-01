@@ -76,7 +76,7 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     """
     # Initialize log server immediately (if not already running)
     try:
-        stop_log_server() 
+        # stop_log_server() 
         start_log_server()
         # Give the server a moment to start
         await asyncio.sleep(1)
@@ -168,7 +168,7 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     # Including a reference to the dashboard for detailed logs
     confirmation_text = f"{formatted_result}\n\n👁️ See the 'Operative Control Center' dashboard for detailed live logs.\nWeb Evaluation completed!"
     send_log(f"Web evaluation task completed for {url}.", status_emoji) # Also send confirmation to dashboard
-    stop_log_server()
+    # stop_log_server()
     
     return [TextContent(
         type="text",

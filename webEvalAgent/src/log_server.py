@@ -7,7 +7,6 @@ from flask_socketio import SocketIO
 import logging
 import os
 from datetime import datetime
-import multiprocessing
 
 # --- Async mode selection ---
 _async_mode = 'threading'
@@ -76,7 +75,7 @@ def run_server(host='127.0.0.1', port=5009):
 
 
 def start_log_server(host='127.0.0.1', port=5009):
-    """Starts the Flask-SocketIO server in a separate process."""
+    """Starts the Flask-SocketIO server in a separate thread."""
     # Check if templates directory exists
     template_dir = os.path.join(os.path.dirname(__file__), '../templates')
     static_dir = os.path.join(template_dir, 'static')
@@ -171,15 +170,15 @@ def start_log_server(host='127.0.0.1', port=5009):
 </html>''')
         # print(f"Created modern index.html with Tailwind CSS at {index_path}")
 
-    # Start the server in a separate process instead of a thread
+    # Start the server in a separate thread instead of a process
     # Pass host and port as arguments to the top-level run_server
-    server_process = multiprocessing.Process(target=run_server, args=(host, port))
-    server_process.daemon = True
-    server_process.start()
+    server_thread = threading.Thread(target=run_server, args=(host, port))
+    server_thread.daemon = True
+    server_thread.start()
     
-    # print("Log server process started.")
+    # print("Log server thread started.")
     # Send initial status message
-    send_log("Log server process started.", "🚀", log_type='status')
+    send_log("Log server thread started.", "🚀", log_type='status')
 
 def open_log_dashboard(url='http://127.0.0.1:5009'):
     """Opens the specified URL in a new tab in the default web browser."""
