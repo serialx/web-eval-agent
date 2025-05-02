@@ -7,12 +7,9 @@ import uuid
 import re
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, List, Any
-import subprocess
-import os
-import platform
 
 from mcp.server.fastmcp import Context
-from mcp.types import TextContent, ImageContent
+from mcp.types import TextContent
 
 # Import the manager directly
 from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
@@ -42,24 +39,6 @@ def get_browser_manager() -> PlaywrightBrowserManager:
     """
     return PlaywrightBrowserManager.get_instance()
 
-def stop_log_server():
-    """Stop the log server on port 5009.
-    
-    This function attempts to stop any process running on port 5009
-    by killing the process if it's a Unix-like system, or using taskkill
-    on Windows.
-    """
-    try:
-        if platform.system() == "Windows":
-            subprocess.run(["taskkill", "/F", "/PID", 
-                            subprocess.check_output(["netstat", "-ano", "|", "findstr", ":5009"]).decode().strip().split()[-1]], 
-                            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-        else:  # Unix-like systems (Linux, macOS)
-            subprocess.run(f"kill $(lsof -ti tcp:5009)", shell=True, 
-                            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-    except Exception:
-        pass  # Ignore errors if no process is running on that port
-
 async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key: str) -> list[TextContent]:
     """Handle web_eval_agent tool calls
     
@@ -76,7 +55,7 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     """
     # Initialize log server immediately (if not already running)
     try:
-        # stop_log_server() 
+        # Start the log server right away
         start_log_server()
         # Give the server a moment to start
         await asyncio.sleep(1)
@@ -125,23 +104,16 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     send_log(f"📝 Generated evaluation prompt.", "📝")
     
     # Run the browser task
-    agent_result_data = None
+    agent_final_result = None
     try:
-        # run_browser_task now returns a dictionary with result and screenshots
-        agent_result_data = await run_browser_task(
+        # run_browser_task now only returns the final result string
+        agent_final_result = await run_browser_task(
             evaluation_task,
             "claude-3-7-sonnet-latest", # This model name might need update based on browser_utils
             ctx,
             tool_call_id=tool_call_id,
             api_key=api_key
         )
-        
-        # Extract the final result string
-        agent_final_result = agent_result_data.get("result", "No result provided")
-        screenshots = agent_result_data.get("screenshots", [])
-        
-        # Log the number of screenshots captured
-        send_log(f"📸 Captured {len(screenshots)} screenshots during evaluation", "📸")
 
         # Optional: Send the final result from the agent to the dashboard as well
         send_log(f"✅ Agent final result: {agent_final_result}", "✅")

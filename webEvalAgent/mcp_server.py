@@ -6,10 +6,20 @@ import argparse
 import traceback
 import uuid
 from enum import Enum
+import logging # Import logging
 
 # Set the API key to a fake key to avoid error in backend
 os.environ["ANTHROPIC_API_KEY"] = 'not_a_real_key'
 os.environ["ANONYMIZED_TELEMETRY"] = 'false'
+
+# Configure logging to show DEBUG messages
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logging.getLogger('websockets').setLevel(logging.INFO) # Reduce noise from websockets library if used by playwright
+logging.getLogger('playwright').setLevel(logging.INFO) # Reduce noise from playwright library
 
 # MCP imports
 from mcp.server.fastmcp import FastMCP, Context
@@ -89,8 +99,19 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
 
 if __name__ == "__main__":
     try:
-        # Run the FastMCP server
-        mcp.run(transport='stdio')
+        # Run a test evaluation on localhost:5173
+        import asyncio
+        
+        async def run_test_eval():
+            await web_eval_agent(
+                url="http://localhost:5173", 
+                task="general eval", 
+                working_directory=".", 
+                ctx="fdafdaf"
+            )
+        
+        # Run the evaluation
+        asyncio.run(run_test_eval())
     finally:
         # Ensure resources are cleaned up
         # asyncio.run(cleanup_resources()) # Cleanup now handled in browser_utils

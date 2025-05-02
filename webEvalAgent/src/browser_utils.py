@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
 import asyncio
-import asyncio
 import io
 import json
 import logging
 import uuid
 import warnings
-import base64
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any, Tuple, List, Optional
 from collections import deque
@@ -32,12 +30,14 @@ from langchain_anthropic import ChatAnthropic
 from mcp.server.fastmcp import Context
 from langchain.globals import set_verbose
 
+# Original method will be stored here
+_original_bring_to_front = None
+
 # This prevents the browser window from stealing focus during execution.
 async def _no_bring_to_front(self, *args, **kwargs):
     return None
 
-PlaywrightPage.bring_to_front = _no_bring_to_front
-# --- End Patch ---
+# We'll apply and remove the patch in run_browser_task
 
 # Global variable to store agent instance - might be less necessary if Agent is created per task run
 agent_instance = None
@@ -88,9 +88,6 @@ def should_log_network_request(url: str) -> bool:
 # --- Log Storage (Global within this module using deque) ---
 console_log_storage: deque = deque(maxlen=MAX_LOG_ENTRIES)
 network_request_storage: deque = deque(maxlen=MAX_LOG_ENTRIES)
-
-# --- Screenshot Storage (Global within this module) ---
-screenshot_storage: List[Dict[str, Any]] = []
 
 # --- Log Handlers (Use deque's append and send_log with type) ---
 async def handle_console_message(message):
@@ -292,7 +289,7 @@ def get_agent_state():
         'stopped': False
     }
 
-async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> Dict[str, Any]:
+async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> str:
     """
     Run a task using browser-use agent, sending logs to the dashboard.
 
@@ -306,10 +303,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
     Returns:
         str: Agent's final result (stringified).
     """
-    global agent_instance, console_log_storage, network_request_storage, screenshot_storage, original_create_context
-    
-    # Clear screenshot storage for this run
-    screenshot_storage.clear()
+    global agent_instance, console_log_storage, network_request_storage, original_create_context, _original_bring_to_front
     import traceback # Make sure traceback is imported for error logging
 
     # --- Clear Logs for this Run ---
@@ -334,17 +328,147 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
     set_verbose(False)
 
     try:
+        # Apply the patch to prevent focus stealing
+        global _original_bring_to_front
+        _original_bring_to_front = PlaywrightPage.bring_to_front
+        PlaywrightPage.bring_to_front = _no_bring_to_front
+        
         # --- Initialize Playwright Directly ---
         playwright = await async_playwright().start()
-        playwright_browser = await playwright.chromium.launch(headless=False)
-        send_log("Playwright initialized for task.", "🎭", log_type='status') # Type: status
+        # Launch with CDP enabled - use headless=False as recommended
+        playwright_browser = await playwright.chromium.launch(
+            headless=False,  # Use non-headless mode with remote debugging
+            args=["--remote-debugging-port=9222"]
+        )
+        
+        # Get the CDP URL from the browser
+        send_log("Playwright initialized for task with CDP.", "🎭", log_type='status') # Type: status
 
         # --- Create browser-use Browser ---
-        browser_config = BrowserConfig(disable_security=True, headless=False)
+        browser_config = BrowserConfig(disable_security=True, headless=False, cdp_url="http://127.0.0.1:9222")
         agent_browser = Browser(config=browser_config)
         agent_browser.playwright = playwright
         agent_browser.playwright_browser = playwright_browser
-        send_log("Linked Playwright to agent browser.", "🔗", log_type='status') # Type: status
+        send_log("Linked Playwright to agent browser with CDP enabled.", "🔗", log_type='status') # Type: status
+        
+        # --- Set up CDP screencasting ---
+        # Detailed logging and error handling for each step
+        try:
+            # Create a context and page as recommended
+            print("DEBUG: Creating browser context and page...")
+            context = await playwright_browser.new_context()
+            first_page = await context.new_page()
+            print(f"DEBUG: Created new page: {first_page.url}")
+            
+            # Create a CDP session for the page
+            print("DEBUG: Creating CDP session...")
+            try:
+                cdp_session = await context.new_cdp_session(first_page)
+                print("DEBUG: CDP session created successfully")
+            except Exception as cdp_error:
+                print(f"ERROR: Failed to create CDP session: {cdp_error}")
+                send_log(f"Failed to create CDP session: {cdp_error}", "❌", log_type='status')
+                import traceback
+                print(f"ERROR: CDP session creation traceback: {traceback.format_exc()}")
+                raise  # Re-raise to be caught by outer try/except
+            
+            # Set up a listener for screencast frames
+            print("DEBUG: Setting up screencast frame handler...")
+            async def handle_screencast_frame(params):
+                print(f"DEBUG: Received screencast frame with sessionId: {params.get('sessionId', 'unknown')}")
+                
+                if 'data' not in params:
+                    print("ERROR: No 'data' in screencast frame params")
+                    return
+                    
+                if 'sessionId' not in params:
+                    print("ERROR: No 'sessionId' in screencast frame params")
+                    return
+                
+                try:
+                    # Format as data URL
+                    image_data = params['data']
+                    print(f"DEBUG: Frame data length: {len(image_data)}")
+                    image_data_url = f"data:image/jpeg;base64,{image_data}"
+                    
+                    # Send to frontend via SocketIO
+                    print("DEBUG: Importing send_browser_view...")
+                    try:
+                        from .log_server import send_browser_view
+                        print("DEBUG: send_browser_view imported successfully")
+                    except ImportError as import_error:
+                        print(f"ERROR: Failed to import send_browser_view: {import_error}")
+                        return
+                    
+                    print("DEBUG: Calling send_browser_view...")
+                    try:
+                        await send_browser_view(image_data_url)
+                        print("DEBUG: send_browser_view called successfully")
+                    except Exception as send_error:
+                        print(f"ERROR: Failed to send browser view: {send_error}")
+                        import traceback
+                        print(f"ERROR: send_browser_view traceback: {traceback.format_exc()}")
+                    
+                    # Acknowledge the frame
+                    print(f"DEBUG: Acknowledging frame with sessionId: {params['sessionId']}")
+                    try:
+                        await cdp_session.send("Page.screencastFrameAck", {"sessionId": params['sessionId']})
+                        print("DEBUG: Frame acknowledged successfully")
+                    except Exception as ack_error:
+                        print(f"ERROR: Failed to acknowledge frame: {ack_error}")
+                except Exception as frame_error:
+                    print(f"ERROR: Error handling screencast frame: {frame_error}")
+                    import traceback
+                    print(f"ERROR: Frame handling traceback: {traceback.format_exc()}")
+            
+            # Register the listener
+            print("DEBUG: Registering screencast frame listener...")
+            cdp_session.on("Page.screencastFrame", handle_screencast_frame)
+            print("DEBUG: Screencast frame listener registered")
+            
+            # Start the screencast
+            print("DEBUG: Starting screencast...")
+            try:
+                await cdp_session.send("Page.startScreencast", {
+                    "format": "png",
+                    "quality": 100,
+                    "maxWidth": 1920,
+                    "maxHeight": 1080
+                })
+                print("DEBUG: Screencast started successfully")
+            except Exception as start_error:
+                print(f"ERROR: Failed to start screencast: {start_error}")
+                send_log(f"Failed to start screencast: {start_error}", "❌", log_type='status')
+                import traceback
+                print(f"ERROR: Start screencast traceback: {traceback.format_exc()}")
+                raise  # Re-raise to be caught by outer try/except
+            
+            # Test if we can take a screenshot directly
+            print("DEBUG: Testing direct screenshot...")
+            try:
+                screenshot_bytes = await first_page.screenshot(type='jpeg')
+                print(f"DEBUG: Direct screenshot successful, size: {len(screenshot_bytes)} bytes")
+                
+                # Try sending this screenshot directly
+                import base64
+                screenshot_b64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                direct_image_url = f"data:image/jpeg;base64,{screenshot_b64}"
+                
+                print("DEBUG: Sending direct screenshot via send_browser_view...")
+                from .log_server import send_browser_view
+                await send_browser_view(direct_image_url)
+                print("DEBUG: Direct screenshot sent successfully")
+            except Exception as screenshot_error:
+                print(f"ERROR: Failed to take or send direct screenshot: {screenshot_error}")
+                import traceback
+                print(f"ERROR: Screenshot traceback: {traceback.format_exc()}")
+            
+            send_log("CDP screencast started for browser-use browser.", "📹", log_type='status')
+        except Exception as e:
+            print(f"ERROR: Failed to set up CDP screencasting: {e}")
+            send_log(f"Failed to start CDP screencast: {e}", "❌", log_type='status')
+            import traceback
+            print(f"ERROR: CDP setup traceback: {traceback.format_exc()}")
 
         # --- Patch BrowserContext._create_context ---
         # Store original only if not already stored (first run)
@@ -355,11 +479,11 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             # Already patched, just ensure we have a reference for finally
             local_original_create_context = original_create_context
 
-        async def patched_create_context(self: BrowserContext, browser_pw: PlaywrightBrowser) -> PlaywrightBrowserContext:
+        async def patched_create_context(self, browser_pw):
             if original_create_context is None:
                  raise RuntimeError("Original _create_context not stored correctly")
 
-            raw_playwright_context: PlaywrightBrowserContext = await original_create_context(self, browser_pw)
+            raw_playwright_context = await original_create_context(self, browser_pw)
             # send_log("BrowserContext patched, attaching log handlers...", "🔧", log_type='status') # Type: status
 
             if raw_playwright_context:
@@ -400,34 +524,19 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
         # --- Agent Callback ---
         async def state_callback(browser_state, agent_output, step_number):
-            global agent_instance, screenshot_storage # Ensure we have access to the agent and screenshot storage
+            global agent_instance # Ensure we have access to the agent
 
             # Send agent output with type 'agent'
             send_log(f"Step {step_number}", "📍", log_type='agent')
             send_log(f"URL: {browser_state.url}", "🔗", log_type='agent')
 
-            # Capture screenshot at each step
+            # Re-inject the overlay after each step using the agent's current page
             try:
                 if agent_instance and agent_instance.browser_context:
                     # Use the provided helper method to get the current page
-                    current_page: Optional[PlaywrightPage] = await agent_instance.browser_context.get_current_page()
+                    current_page = await agent_instance.browser_context.get_current_page()
 
                     if current_page:
-                        # Take screenshot
-                        screenshot_bytes = await current_page.screenshot(type='jpeg', quality=80)
-                        screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
-                        
-                        # Store screenshot with metadata
-                        screenshot_storage.append({
-                            'step': step_number,
-                            'url': browser_state.url,
-                            'timestamp': asyncio.get_event_loop().time(),
-                            'screenshot': screenshot_base64
-                        })
-                        
-                        send_log(f"Screenshot captured for step {step_number}", "📸", log_type='status')
-                        
-                        # Re-inject the overlay
                         send_log(f"Re-injecting overlay after step {step_number} into page {current_page.url}", "🔄", log_type='status')
                         await inject_agent_control_overlay(current_page)
                     else:
@@ -439,7 +548,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                 # Add traceback for debugging other potential errors
                 import traceback
                 tb_str = traceback.format_exc()
-                send_log(f"Failed to capture screenshot or re-inject overlay after step: {e}\n{tb_str}", "⚠️", log_type='status')
+                send_log(f"Failed to re-inject overlay after step: {e}\n{tb_str}", "⚠️", log_type='status')
 
             # Ensure agent_output is a string before logging
             output_str = str(agent_output)
@@ -462,21 +571,19 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         # Convert AgentHistoryList to a serializable format (just stringify)
         serialized_result = str(agent_result)
 
-        # Return the agent result and screenshots
-        return {
-            "result": serialized_result,
-            "screenshots": screenshot_storage
-        }
+        # Return only the agent result
+        return serialized_result
 
     except Exception as e:
         error_message = f"Error in run_browser_task: {e}\n{traceback.format_exc()}"
         send_log(error_message, "❌", log_type='status') # Type: status
-        return {
-            "result": error_message,
-            "screenshots": screenshot_storage
-        }
+        return error_message
     finally:
         # --- Cleanup ---
+        # Restore the original bring_to_front method
+        if _original_bring_to_front:
+            PlaywrightPage.bring_to_front = _original_bring_to_front
+            
         # Ensure patch is restored
         if local_original_create_context:
             BrowserContext._create_context = local_original_create_context
