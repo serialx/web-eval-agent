@@ -369,11 +369,26 @@ class PlaywrightBrowserManager:
     # --- Input Handling ---
     async def handle_browser_input(self, event_type: str, details: Dict) -> None:
         """Handles input events received from the frontend via log_server."""
-        if not self.cdp_session or not self.screencast_task_running:
-            logging.warning(f"Cannot handle browser input '{event_type}': No active CDP session or screencast stopped.")
+        print(f"BROWSER_MANAGER: handle_browser_input called with event_type={event_type}")
+        print(f"BROWSER_MANAGER: Input details: {details}")
+        
+        # Check if we have an active CDP session
+        if not self.cdp_session:
+            print(f"BROWSER_MANAGER ERROR: No active CDP session for input handling")
+            logging.warning(f"Cannot handle browser input '{event_type}': No active CDP session.")
+            send_log(f"Input error: No active CDP session", "❌", log_type='status')
+            return
+            
+        # Check if screencast is running
+        if not self.screencast_task_running:
+            print(f"BROWSER_MANAGER ERROR: Screencast not running for input handling")
+            logging.warning(f"Cannot handle browser input '{event_type}': Screencast stopped.")
+            send_log(f"Input error: Screencast not running", "❌", log_type='status')
             return
 
+        print(f"BROWSER_MANAGER: Processing browser input event: {event_type}, Details: {details}")
         logging.debug(f"Processing browser input event: {event_type}, Details: {details}")
+        send_log(f"Processing input: {event_type}", "🔄", log_type='status')
 
         try:
             if event_type == 'click':
@@ -385,51 +400,117 @@ class PlaywrightBrowserManager:
                 # Modifiers might be needed for complex interactions, but start simple
                 modifiers = 0 # TODO: Map ctrlKey, shiftKey etc. if needed
 
+                print(f"BROWSER_MANAGER: Sending mousePressed event: button={button}, x={x}, y={y}, clickCount={click_count}")
+                
                 # Mouse Pressed
-                await self.cdp_session.send("Input.dispatchMouseEvent", {
+                mouse_pressed_params = {
                     "type": "mousePressed",
                     "button": button,
                     "x": x,
                     "y": y,
                     "modifiers": modifiers,
                     "clickCount": click_count
-                })
+                }
+                print(f"BROWSER_MANAGER: mousePressed params: {mouse_pressed_params}")
+                
+                try:
+                    await self.cdp_session.send("Input.dispatchMouseEvent", mouse_pressed_params)
+                    print(f"BROWSER_MANAGER: mousePressed event sent successfully")
+                except Exception as press_error:
+                    print(f"BROWSER_MANAGER ERROR: Failed to send mousePressed: {press_error}")
+                    import traceback
+                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
+                    send_log(f"Input error: Failed to send mousePressed: {press_error}", "❌", log_type='status')
+                    return
+                
                 # Short delay often helps reliability
+                print(f"BROWSER_MANAGER: Waiting 50ms between press and release")
                 await asyncio.sleep(0.05)
+                
                 # Mouse Released
-                await self.cdp_session.send("Input.dispatchMouseEvent", {
+                print(f"BROWSER_MANAGER: Sending mouseReleased event: button={button}, x={x}, y={y}, clickCount={click_count}")
+                mouse_released_params = {
                     "type": "mouseReleased",
                     "button": button,
                     "x": x,
                     "y": y,
                     "modifiers": modifiers,
                     "clickCount": click_count
-                })
+                }
+                print(f"BROWSER_MANAGER: mouseReleased params: {mouse_released_params}")
+                
+                try:
+                    await self.cdp_session.send("Input.dispatchMouseEvent", mouse_released_params)
+                    print(f"BROWSER_MANAGER: mouseReleased event sent successfully")
+                except Exception as release_error:
+                    print(f"BROWSER_MANAGER ERROR: Failed to send mouseReleased: {release_error}")
+                    import traceback
+                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
+                    send_log(f"Input error: Failed to send mouseReleased: {release_error}", "❌", log_type='status')
+                    return
+                
+                print(f"BROWSER_MANAGER: Sent CDP click event at ({x},{y}), button: {button}")
                 logging.debug(f"Sent CDP click event at ({x},{y}), button: {button}")
+                send_log(f"Click sent at ({x},{y})", "👆", log_type='status')
 
             elif event_type == 'keydown':
                 # Map frontend details to CDP key event parameters
-                # Note: CDP parameters like 'text', 'unmodifiedText', 'keyIdentifier' can be complex.
-                # Using 'key' and 'code' is often sufficient for basic typing.
-                # 'windowsVirtualKeyCode' might be needed for some keys.
-                await self.cdp_session.send("Input.dispatchKeyEvent", {
+                key = details.get('key', '')
+                code = details.get('code', '')
+                modifiers = self._map_modifiers(details)
+                
+                print(f"BROWSER_MANAGER: Sending keyDown event: key={key}, code={code}, modifiers={modifiers}")
+                
+                key_params = {
                     "type": "keyDown",
-                    "modifiers": self._map_modifiers(details),
-                    "key": details.get('key', ''),
-                    "code": details.get('code', ''),
-                    # "text": details.get('key', ''), # Simplistic mapping for printable chars
-                    # "unmodifiedText": details.get('key', ''), # Simplistic
-                })
-                logging.debug(f"Sent CDP keydown event: key={details.get('key')}")
+                    "modifiers": modifiers,
+                    "key": key,
+                    "code": code,
+                }
+                print(f"BROWSER_MANAGER: keyDown params: {key_params}")
+                
+                try:
+                    await self.cdp_session.send("Input.dispatchKeyEvent", key_params)
+                    print(f"BROWSER_MANAGER: keyDown event sent successfully")
+                except Exception as key_error:
+                    print(f"BROWSER_MANAGER ERROR: Failed to send keyDown: {key_error}")
+                    import traceback
+                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
+                    send_log(f"Input error: Failed to send keyDown: {key_error}", "❌", log_type='status')
+                    return
+                
+                print(f"BROWSER_MANAGER: Sent CDP keydown event: key={key}")
+                logging.debug(f"Sent CDP keydown event: key={key}")
+                send_log(f"Key down sent: {key}", "⌨️", log_type='status')
 
             elif event_type == 'keyup':
-                await self.cdp_session.send("Input.dispatchKeyEvent", {
+                key = details.get('key', '')
+                code = details.get('code', '')
+                modifiers = self._map_modifiers(details)
+                
+                print(f"BROWSER_MANAGER: Sending keyUp event: key={key}, code={code}, modifiers={modifiers}")
+                
+                key_params = {
                     "type": "keyUp",
-                     "modifiers": self._map_modifiers(details),
-                     "key": details.get('key', ''),
-                     "code": details.get('code', ''),
-                })
-                logging.debug(f"Sent CDP keyup event: key={details.get('key')}")
+                    "modifiers": modifiers,
+                    "key": key,
+                    "code": code,
+                }
+                print(f"BROWSER_MANAGER: keyUp params: {key_params}")
+                
+                try:
+                    await self.cdp_session.send("Input.dispatchKeyEvent", key_params)
+                    print(f"BROWSER_MANAGER: keyUp event sent successfully")
+                except Exception as key_error:
+                    print(f"BROWSER_MANAGER ERROR: Failed to send keyUp: {key_error}")
+                    import traceback
+                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
+                    send_log(f"Input error: Failed to send keyUp: {key_error}", "❌", log_type='status')
+                    return
+                
+                print(f"BROWSER_MANAGER: Sent CDP keyup event: key={key}")
+                logging.debug(f"Sent CDP keyup event: key={key}")
+                send_log(f"Key up sent: {key}", "⌨️", log_type='status')
 
             elif event_type == 'scroll':
                 # Use dispatchMouseEvent with type 'mouseWheel'
@@ -437,29 +518,58 @@ class PlaywrightBrowserManager:
                 y = details.get('y', 0)
                 delta_x = details.get('deltaX', 0)
                 delta_y = details.get('deltaY', 0)
-                await self.cdp_session.send("Input.dispatchMouseEvent", {
+                
+                print(f"BROWSER_MANAGER: Sending mouseWheel event: x={x}, y={y}, deltaX={delta_x}, deltaY={delta_y}")
+                
+                wheel_params = {
                     "type": "mouseWheel",
                     "x": x,
                     "y": y,
                     "deltaX": delta_x,
                     "deltaY": delta_y,
                     "modifiers": 0 # Modifiers usually not needed for scroll
-                })
+                }
+                print(f"BROWSER_MANAGER: mouseWheel params: {wheel_params}")
+                
+                try:
+                    await self.cdp_session.send("Input.dispatchMouseEvent", wheel_params)
+                    print(f"BROWSER_MANAGER: mouseWheel event sent successfully")
+                except Exception as wheel_error:
+                    print(f"BROWSER_MANAGER ERROR: Failed to send mouseWheel: {wheel_error}")
+                    import traceback
+                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
+                    send_log(f"Input error: Failed to send mouseWheel: {wheel_error}", "❌", log_type='status')
+                    return
+                
+                print(f"BROWSER_MANAGER: Sent CDP scroll event: dX={delta_x}, dY={delta_y} at ({x},{y})")
                 logging.debug(f"Sent CDP scroll event: dX={delta_x}, dY={delta_y} at ({x},{y})")
+                send_log(f"Scroll sent: dY={delta_y}", "📜", log_type='status')
 
             else:
+                print(f"BROWSER_MANAGER WARNING: Received unknown browser input event type: {event_type}")
                 logging.warning(f"Received unknown browser input event type: {event_type}")
+                send_log(f"Unknown input type: {event_type}", "❓", log_type='status')
 
         except Exception as e:
+            print(f"BROWSER_MANAGER ERROR: Error dispatching CDP input event '{event_type}': {e}")
             logging.error(f"Error dispatching CDP input event '{event_type}': {e}")
+            import traceback
+            print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
+            send_log(f"Input error: {e}", "❌", log_type='status')
+            
             # Check if the session is closed
-            if "Target closed" in str(e) or "Session closed" in str(e):
-                 logging.warning("CDP session seems closed, stopping input handling.")
-                 self.screencast_task_running = False # Mark as stopped
-                 if self.cdp_session:
-                     try: await self.cdp_session.detach()
-                     except: pass
-                     self.cdp_session = None
+            if "Target closed" in str(e) or "Session closed" in str(e) or "Connection closed" in str(e):
+                print(f"BROWSER_MANAGER WARNING: CDP session seems closed, stopping input handling.")
+                logging.warning("CDP session seems closed, stopping input handling.")
+                send_log("CDP session closed, stopping input handling", "⚠️", log_type='status')
+                self.screencast_task_running = False # Mark as stopped
+                if self.cdp_session:
+                    try: 
+                        await self.cdp_session.detach()
+                        print(f"BROWSER_MANAGER: CDP session detached")
+                    except Exception as detach_error: 
+                        print(f"BROWSER_MANAGER ERROR: Failed to detach CDP session: {detach_error}")
+                    self.cdp_session = None
 
     def _map_modifiers(self, details: Dict) -> int:
         """Maps modifier keys from frontend details to CDP modifier bitmask."""

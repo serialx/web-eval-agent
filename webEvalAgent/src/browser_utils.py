@@ -39,10 +39,11 @@ async def _no_bring_to_front(self, *args, **kwargs):
 
 # We'll apply and remove the patch in run_browser_task
 
-# Global variable to store agent instance - might be less necessary if Agent is created per task run
-agent_instance = None
-# Global variable to store the original patched method if patching class-level
-original_create_context: Optional[callable] = None
+# Global variables
+agent_instance = None  # Store agent instance
+original_create_context: Optional[callable] = None  # Store original patched method
+active_cdp_session = None  # Store active CDP session for input handling
+active_screencast_running = False  # Track if screencast is running
 
 # Define the maximum number of logs/requests to keep
 MAX_LOG_ENTRIES = 10
@@ -222,15 +223,15 @@ async def setup_page_agent_controls(page: PlaywrightPage):
         await page.expose_function('getAgentState', lambda: get_agent_state())
         
         # Inject the agent control overlay
-        await inject_agent_control_overlay(page)
+        # await inject_agent_control_overlay(page)
         
         # Add navigation listener to re-inject overlay after navigation
         async def handle_frame_navigation(frame):
             if frame is page.main_frame:
                 send_log(f"Page navigated to: {page.url}", "🧭", log_type='status')
                 # Wait a bit for the page to stabilize after navigation
-                await asyncio.sleep(0.5)
-                await inject_agent_control_overlay(page)
+                # await asyncio.sleep(0.5)
+                # await inject_agent_control_overlay(page)
         
         # Listen for framenavigated events
         page.on("framenavigated", lambda frame: asyncio.create_task(handle_frame_navigation(frame)))
@@ -240,7 +241,7 @@ async def setup_page_agent_controls(page: PlaywrightPage):
         async def handle_load():
             send_log(f"Page load event on: {page.url}", "🔄", log_type='status')
             await asyncio.sleep(0.5)  # Wait a bit for the page to stabilize
-            await inject_agent_control_overlay(page)
+            # await inject_agent_control_overlay(page)
             
         page.on("load", lambda: asyncio.create_task(handle_load()))
         send_log("Added load event listener to page", "🔄", log_type='status')
@@ -254,7 +255,10 @@ def pause_agent():
     global agent_instance
     if agent_instance:
         agent_instance.pause()
-        send_log("Agent paused by user via overlay", "⏸️", log_type='status')
+        send_log("Agent paused", "⏸️", log_type='status')
+        # Send agent state update to frontend
+        from .log_server import socketio
+        socketio.emit('agent_state', {'state': {'paused': True, 'stopped': False}})
         return True
     return False
 
@@ -263,7 +267,10 @@ def resume_agent():
     global agent_instance
     if agent_instance:
         agent_instance.resume()
-        send_log("Agent resumed by user via overlay", "▶️", log_type='status')
+        send_log("Agent resumed", "▶️", log_type='status')
+        # Send agent state update to frontend
+        from .log_server import socketio
+        socketio.emit('agent_state', {'state': {'paused': False, 'stopped': False}})
         return True
     return False
 
@@ -272,22 +279,266 @@ def stop_agent():
     global agent_instance
     if agent_instance:
         agent_instance.stop()
-        send_log("Agent stopped by user via overlay", "⏹️", log_type='status')
+        send_log("Agent stopped", "⏹️", log_type='status')
+        # Send agent state update to frontend
+        from .log_server import socketio
+        socketio.emit('agent_state', {'state': {'paused': False, 'stopped': True}})
         return True
     return False
 
 def get_agent_state():
     """Get the agent state."""
     global agent_instance
-    if agent_instance:
-        return {
-            'paused': agent_instance.state.paused,
-            'stopped': agent_instance.state.stopped
-        }
-    return {
+    state = {
         'paused': False,
         'stopped': False
     }
+    
+    if agent_instance and hasattr(agent_instance, 'state'):
+        state = {
+            'paused': agent_instance.state.paused,
+            'stopped': agent_instance.state.stopped
+        }
+    
+    # Send agent state update to frontend
+    try:
+        from .log_server import socketio
+        socketio.emit('agent_state', {'state': state})
+    except Exception as e:
+        print(f"Error sending agent state update: {e}")
+        
+    return state
+
+# --- Input Handling Functions ---
+async def handle_browser_input(event_type: str, details: Dict) -> None:
+    """Handle browser input events from the frontend.
+    
+    Args:
+        event_type: The type of input event (click, scroll, keydown, keyup)
+        details: The details of the input event
+        
+    Returns:
+        None
+    """
+    global active_cdp_session, active_screencast_running
+    
+    print(f"BROWSER_UTILS: handle_browser_input called with event_type={event_type}")
+    print(f"BROWSER_UTILS: Input details: {details}")
+    
+    # Check if we have an active CDP session
+    if not active_cdp_session:
+        print(f"BROWSER_UTILS ERROR: No active CDP session for input handling")
+        send_log(f"Input error: No active CDP session", "❌", log_type='status')
+        return
+        
+    # Check if screencast is running
+    if not active_screencast_running:
+        print(f"BROWSER_UTILS ERROR: Screencast not running for input handling")
+        send_log(f"Input error: Screencast not running", "❌", log_type='status')
+        return
+
+    print(f"BROWSER_UTILS: Processing browser input event: {event_type}, Details: {details}")
+    send_log(f"Processing input: {event_type}", "🔄", log_type='status')
+
+    try:
+        if event_type == 'click':
+            # CDP expects separate press and release events for a click
+            button = details.get('button', 'left')
+            x = details.get('x', 0)
+            y = details.get('y', 0)
+            click_count = details.get('clickCount', 1)
+            # Modifiers might be needed for complex interactions, but start simple
+            modifiers = 0 # TODO: Map ctrlKey, shiftKey etc. if needed
+
+            print(f"BROWSER_UTILS: Sending mousePressed event: button={button}, x={x}, y={y}, clickCount={click_count}")
+            
+            # Mouse Pressed
+            mouse_pressed_params = {
+                "type": "mousePressed",
+                "button": button,
+                "x": x,
+                "y": y,
+                "modifiers": modifiers,
+                "clickCount": click_count
+            }
+            print(f"BROWSER_UTILS: mousePressed params: {mouse_pressed_params}")
+            
+            try:
+                await active_cdp_session.send("Input.dispatchMouseEvent", mouse_pressed_params)
+                print(f"BROWSER_UTILS: mousePressed event sent successfully")
+            except Exception as press_error:
+                print(f"BROWSER_UTILS ERROR: Failed to send mousePressed: {press_error}")
+                import traceback
+                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
+                send_log(f"Input error: Failed to send mousePressed: {press_error}", "❌", log_type='status')
+                return
+            
+            # Short delay often helps reliability
+            print(f"BROWSER_UTILS: Waiting 50ms between press and release")
+            await asyncio.sleep(0.05)
+            
+            # Mouse Released
+            print(f"BROWSER_UTILS: Sending mouseReleased event: button={button}, x={x}, y={y}, clickCount={click_count}")
+            mouse_released_params = {
+                "type": "mouseReleased",
+                "button": button,
+                "x": x,
+                "y": y,
+                "modifiers": modifiers,
+                "clickCount": click_count
+            }
+            print(f"BROWSER_UTILS: mouseReleased params: {mouse_released_params}")
+            
+            try:
+                await active_cdp_session.send("Input.dispatchMouseEvent", mouse_released_params)
+                print(f"BROWSER_UTILS: mouseReleased event sent successfully")
+            except Exception as release_error:
+                print(f"BROWSER_UTILS ERROR: Failed to send mouseReleased: {release_error}")
+                import traceback
+                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
+                send_log(f"Input error: Failed to send mouseReleased: {release_error}", "❌", log_type='status')
+                return
+            
+            print(f"BROWSER_UTILS: Sent CDP click event at ({x},{y}), button: {button}")
+            send_log(f"Click sent at ({x},{y})", "👆", log_type='status')
+
+        elif event_type == 'keydown':
+            # Map frontend details to CDP key event parameters
+            key = details.get('key', '')
+            code = details.get('code', '')
+            modifiers = _map_modifiers(details)
+            
+            print(f"BROWSER_UTILS: Sending keyDown event: key={key}, code={code}, modifiers={modifiers}")
+            
+            key_params = {
+                "type": "keyDown",
+                "modifiers": modifiers,
+                "key": key,
+                "code": code,
+            }
+            print(f"BROWSER_UTILS: keyDown params: {key_params}")
+            
+            try:
+                await active_cdp_session.send("Input.dispatchKeyEvent", key_params)
+                print(f"BROWSER_UTILS: keyDown event sent successfully")
+            except Exception as key_error:
+                print(f"BROWSER_UTILS ERROR: Failed to send keyDown: {key_error}")
+                import traceback
+                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
+                send_log(f"Input error: Failed to send keyDown: {key_error}", "❌", log_type='status')
+                return
+            
+            print(f"BROWSER_UTILS: Sent CDP keydown event: key={key}")
+            send_log(f"Key down sent: {key}", "⌨️", log_type='status')
+
+        elif event_type == 'keyup':
+            key = details.get('key', '')
+            code = details.get('code', '')
+            modifiers = _map_modifiers(details)
+            
+            print(f"BROWSER_UTILS: Sending keyUp event: key={key}, code={code}, modifiers={modifiers}")
+            
+            key_params = {
+                "type": "keyUp",
+                "modifiers": modifiers,
+                "key": key,
+                "code": code,
+            }
+            print(f"BROWSER_UTILS: keyUp params: {key_params}")
+            
+            try:
+                await active_cdp_session.send("Input.dispatchKeyEvent", key_params)
+                print(f"BROWSER_UTILS: keyUp event sent successfully")
+            except Exception as key_error:
+                print(f"BROWSER_UTILS ERROR: Failed to send keyUp: {key_error}")
+                import traceback
+                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
+                send_log(f"Input error: Failed to send keyUp: {key_error}", "❌", log_type='status')
+                return
+            
+            print(f"BROWSER_UTILS: Sent CDP keyup event: key={key}")
+            send_log(f"Key up sent: {key}", "⌨️", log_type='status')
+
+        elif event_type == 'scroll':
+            # Use dispatchMouseEvent with type 'mouseWheel'
+            x = details.get('x', 0)
+            y = details.get('y', 0)
+            delta_x = details.get('deltaX', 0)
+            delta_y = details.get('deltaY', 0)
+            
+            print(f"BROWSER_UTILS: Sending mouseWheel event: x={x}, y={y}, deltaX={delta_x}, deltaY={delta_y}")
+            
+            wheel_params = {
+                "type": "mouseWheel",
+                "x": x,
+                "y": y,
+                "deltaX": delta_x,
+                "deltaY": delta_y,
+                "modifiers": 0 # Modifiers usually not needed for scroll
+            }
+            print(f"BROWSER_UTILS: mouseWheel params: {wheel_params}")
+            
+            try:
+                await active_cdp_session.send("Input.dispatchMouseEvent", wheel_params)
+                print(f"BROWSER_UTILS: mouseWheel event sent successfully")
+            except Exception as wheel_error:
+                print(f"BROWSER_UTILS ERROR: Failed to send mouseWheel: {wheel_error}")
+                import traceback
+                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
+                send_log(f"Input error: Failed to send mouseWheel: {wheel_error}", "❌", log_type='status')
+                return
+            
+            print(f"BROWSER_UTILS: Sent CDP scroll event: dX={delta_x}, dY={delta_y} at ({x},{y})")
+            send_log(f"Scroll sent: dY={delta_y}", "📜", log_type='status')
+
+        else:
+            print(f"BROWSER_UTILS WARNING: Received unknown browser input event type: {event_type}")
+            send_log(f"Unknown input type: {event_type}", "❓", log_type='status')
+
+    except Exception as e:
+        print(f"BROWSER_UTILS ERROR: Error dispatching CDP input event '{event_type}': {e}")
+        import traceback
+        print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
+        send_log(f"Input error: {e}", "❌", log_type='status')
+        
+        # Check if the session is closed
+        if "Target closed" in str(e) or "Session closed" in str(e) or "Connection closed" in str(e):
+            print(f"BROWSER_UTILS WARNING: CDP session seems closed, stopping input handling.")
+            send_log("CDP session closed, stopping input handling", "⚠️", log_type='status')
+            active_screencast_running = False # Mark as stopped
+            if active_cdp_session:
+                try: 
+                    await active_cdp_session.detach()
+                    print(f"BROWSER_UTILS: CDP session detached")
+                except Exception as detach_error: 
+                    print(f"BROWSER_UTILS ERROR: Failed to detach CDP session: {detach_error}")
+                active_cdp_session = None
+
+def _map_modifiers(details: Dict) -> int:
+    """Maps modifier keys from frontend details to CDP modifier bitmask."""
+    modifiers = 0
+    if details.get('altKey'): modifiers |= 1
+    if details.get('ctrlKey'): modifiers |= 2
+    if details.get('metaKey'): modifiers |= 4 # Command key on Mac
+    if details.get('shiftKey'): modifiers |= 8
+    return modifiers
+
+def set_screencast_running(running: bool = True) -> None:
+    """Set the active_screencast_running flag.
+    
+    Args:
+        running: Whether the screencast is running
+        
+    Returns:
+        None
+    """
+    global active_screencast_running
+    active_screencast_running = running
+    # print(f"BROWSER_UTILS: Set active_screencast_running to {running}")
+    # if running:
+        # send_log("Screencast marked as running, input handling enabled", "✅", log_type='status')
+    # else:
+        # send_log("Screencast marked as stopped, input handling disabled", "⚠️", log_type='status')
 
 async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> str:
     """
@@ -304,6 +555,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         str: Agent's final result (stringified).
     """
     global agent_instance, console_log_storage, network_request_storage, original_create_context, _original_bring_to_front
+    global active_cdp_session, active_screencast_running
     import traceback # Make sure traceback is imported for error logging
 
     # --- Clear Logs for this Run ---
@@ -355,120 +607,86 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         # Detailed logging and error handling for each step
         try:
             # Create a context and page as recommended
-            print("DEBUG: Creating browser context and page...")
             context = await playwright_browser.new_context()
             first_page = await context.new_page()
-            print(f"DEBUG: Created new page: {first_page.url}")
             
             # Create a CDP session for the page
-            print("DEBUG: Creating CDP session...")
             try:
                 cdp_session = await context.new_cdp_session(first_page)
-                print("DEBUG: CDP session created successfully")
+                # Store the CDP session globally for input handling
+                global active_cdp_session
+                active_cdp_session = cdp_session
             except Exception as cdp_error:
-                print(f"ERROR: Failed to create CDP session: {cdp_error}")
                 send_log(f"Failed to create CDP session: {cdp_error}", "❌", log_type='status')
                 import traceback
-                print(f"ERROR: CDP session creation traceback: {traceback.format_exc()}")
                 raise  # Re-raise to be caught by outer try/except
             
             # Set up a listener for screencast frames
-            print("DEBUG: Setting up screencast frame handler...")
             async def handle_screencast_frame(params):
-                print(f"DEBUG: Received screencast frame with sessionId: {params.get('sessionId', 'unknown')}")
-                
                 if 'data' not in params:
-                    print("ERROR: No 'data' in screencast frame params")
                     return
                     
                 if 'sessionId' not in params:
-                    print("ERROR: No 'sessionId' in screencast frame params")
                     return
                 
                 try:
                     # Format as data URL
                     image_data = params['data']
-                    print(f"DEBUG: Frame data length: {len(image_data)}")
                     image_data_url = f"data:image/jpeg;base64,{image_data}"
                     
                     # Send to frontend via SocketIO
-                    print("DEBUG: Importing send_browser_view...")
                     try:
                         from .log_server import send_browser_view
-                        print("DEBUG: send_browser_view imported successfully")
                     except ImportError as import_error:
-                        print(f"ERROR: Failed to import send_browser_view: {import_error}")
                         return
                     
-                    print("DEBUG: Calling send_browser_view...")
                     try:
                         await send_browser_view(image_data_url)
-                        print("DEBUG: send_browser_view called successfully")
                     except Exception as send_error:
-                        print(f"ERROR: Failed to send browser view: {send_error}")
                         import traceback
-                        print(f"ERROR: send_browser_view traceback: {traceback.format_exc()}")
                     
                     # Acknowledge the frame
-                    print(f"DEBUG: Acknowledging frame with sessionId: {params['sessionId']}")
                     try:
                         await cdp_session.send("Page.screencastFrameAck", {"sessionId": params['sessionId']})
-                        print("DEBUG: Frame acknowledged successfully")
                     except Exception as ack_error:
-                        print(f"ERROR: Failed to acknowledge frame: {ack_error}")
+                        pass
                 except Exception as frame_error:
-                    print(f"ERROR: Error handling screencast frame: {frame_error}")
                     import traceback
-                    print(f"ERROR: Frame handling traceback: {traceback.format_exc()}")
             
             # Register the listener
-            print("DEBUG: Registering screencast frame listener...")
             cdp_session.on("Page.screencastFrame", handle_screencast_frame)
-            print("DEBUG: Screencast frame listener registered")
             
             # Start the screencast
-            print("DEBUG: Starting screencast...")
             try:
                 await cdp_session.send("Page.startScreencast", {
-                    "format": "png",
-                    "quality": 100,
-                    "maxWidth": 1920,
-                    "maxHeight": 1080
-                })
-                print("DEBUG: Screencast started successfully")
+                        "format": "png",
+                        "quality": 100,
+                        "maxWidth": 1920,
+                        "maxHeight": 1080
+                    })
             except Exception as start_error:
-                print(f"ERROR: Failed to start screencast: {start_error}")
                 send_log(f"Failed to start screencast: {start_error}", "❌", log_type='status')
                 import traceback
-                print(f"ERROR: Start screencast traceback: {traceback.format_exc()}")
                 raise  # Re-raise to be caught by outer try/except
             
             # Test if we can take a screenshot directly
-            print("DEBUG: Testing direct screenshot...")
             try:
                 screenshot_bytes = await first_page.screenshot(type='jpeg')
-                print(f"DEBUG: Direct screenshot successful, size: {len(screenshot_bytes)} bytes")
                 
                 # Try sending this screenshot directly
                 import base64
                 screenshot_b64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                 direct_image_url = f"data:image/jpeg;base64,{screenshot_b64}"
                 
-                print("DEBUG: Sending direct screenshot via send_browser_view...")
                 from .log_server import send_browser_view
                 await send_browser_view(direct_image_url)
-                print("DEBUG: Direct screenshot sent successfully")
             except Exception as screenshot_error:
-                print(f"ERROR: Failed to take or send direct screenshot: {screenshot_error}")
                 import traceback
-                print(f"ERROR: Screenshot traceback: {traceback.format_exc()}")
             
             send_log("CDP screencast started for browser-use browser.", "📹", log_type='status')
         except Exception as e:
-            print(f"ERROR: Failed to set up CDP screencasting: {e}")
             send_log(f"Failed to start CDP screencast: {e}", "❌", log_type='status')
             import traceback
-            print(f"ERROR: CDP setup traceback: {traceback.format_exc()}")
 
         # --- Patch BrowserContext._create_context ---
         # Store original only if not already stored (first run)
@@ -538,7 +756,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
                     if current_page:
                         send_log(f"Re-injecting overlay after step {step_number} into page {current_page.url}", "🔄", log_type='status')
-                        await inject_agent_control_overlay(current_page)
+                        # await inject_agent_control_overlay(current_page)
                     else:
                         send_log(f"Could not get current page from agent context for step {step_number}", "⚠️", log_type='status')
                 else:

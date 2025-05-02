@@ -104,18 +104,82 @@ async def send_browser_view(image_data_url: str):
     if not image_data_url or not image_data_url.startswith("data:image/"):
         logging.error(f"Invalid image data URL format: {data_preview}")
         return
+    
+    # Mark the screencast as running when we receive a browser view update
+    try:
+        from .browser_utils import set_screencast_running
+        set_screencast_running(True)
+        # print("Marked screencast as running for input handling")
+    except ImportError:
+        print("Could not import set_screencast_running from browser_utils")
+    except Exception as e:
+        print(f"Error setting screencast running: {e}")
         
     try:
         logging.info(f"Attempting to emit 'browser_update' via SocketIO to {len(connected_clients)} clients...")
         socketio.emit('browser_update', {'data': image_data_url})
         logging.info(f"SocketIO emit 'browser_update' called successfully.")
-        
-        # Also send a log message to the dashboard for visibility
-        send_log(f"Browser view updated ({len(image_data_url)} bytes)", "📸", log_type='status')
+
     except Exception as e:
         logging.error(f"BROWSER VIEW EMIT FAILED: {e}")
         import traceback
         logging.error(f"Traceback: {traceback.format_exc()}")
+
+# --- Agent Control Handler ---
+@socketio.on('agent_control')
+def handle_agent_control(data):
+    """Handles agent control events received from the frontend."""
+    action = data.get('action')
+    print(f"AGENT CONTROL: Received action: {action}")
+    
+    # Log to the dashboard
+    send_log(f"Agent control: {action}", "🤖", log_type='status')
+    
+    # Import browser_utils to access the agent_instance
+    try:
+        from .browser_utils import agent_instance
+    except ImportError:
+        error_msg = "Could not import agent_instance from browser_utils"
+        print(f"AGENT CONTROL ERROR: {error_msg}")
+        send_log(f"Agent control error: {error_msg}", "❌", log_type='status')
+        return
+    
+    if not agent_instance:
+        error_msg = "No active agent instance"
+        print(f"AGENT CONTROL ERROR: {error_msg}")
+        send_log(f"Agent control error: {error_msg}", "❌", log_type='status')
+        return
+    
+    try:
+        if action == 'pause':
+            agent_instance.pause()
+            send_log("Agent paused", "⏸️", log_type='status')
+            # Send updated state
+            socketio.emit('agent_state', {'state': {'paused': True, 'stopped': False}})
+            
+        elif action == 'resume':
+            agent_instance.resume()
+            send_log("Agent resumed", "▶️", log_type='status')
+            # Send updated state
+            socketio.emit('agent_state', {'state': {'paused': False, 'stopped': False}})
+            
+        elif action == 'stop':
+            agent_instance.stop()
+            send_log("Agent stopped", "⏹️", log_type='status')
+            # Send updated state
+            socketio.emit('agent_state', {'state': {'paused': False, 'stopped': True}})
+            
+        else:
+            error_msg = f"Unknown agent control action: {action}"
+            print(f"AGENT CONTROL ERROR: {error_msg}")
+            send_log(f"Agent control error: {error_msg}", "❓", log_type='status')
+            
+    except Exception as e:
+        error_msg = f"Error controlling agent: {e}"
+        print(f"AGENT CONTROL ERROR: {error_msg}")
+        import traceback
+        print(f"AGENT CONTROL ERROR TRACEBACK: {traceback.format_exc()}")
+        send_log(f"Agent control error: {error_msg}", "❌", log_type='status')
 
 # --- Browser Input Handler ---
 @socketio.on('browser_input')
@@ -123,34 +187,65 @@ def handle_browser_input_event(data):
     """Handles browser interaction events received from the frontend."""
     event_type = data.get('type')
     details = data.get('details')
-    logging.debug(f"Received browser_input event via SocketIO: Type={event_type}, Details={details}")
-
-    if not PlaywrightBrowserManager:
-        logging.error("PlaywrightBrowserManager not imported, cannot handle browser input.")
-        return
-
-    manager = PlaywrightBrowserManager.get_instance()
-    if not manager or not manager.is_initialized or not manager.cdp_session:
-        logging.warning("Browser manager not ready or no active CDP session, ignoring input.")
-        return
-
-    # Since the browser manager runs in an asyncio loop, and this handler
-    # likely runs in a separate thread (Flask/SocketIO default), we need
-    # to schedule the async input handler function in the manager's loop.
+    
+    # Enhanced logging
+    print(f"BROWSER INPUT: Received event via SocketIO: Type={event_type}")
+    print(f"BROWSER INPUT: Details={details}")
+    
+    # Log to the dashboard as well
+    send_log(f"Received browser input: {event_type}", "🖱️", log_type='status')
+    
+    # Import the handle_browser_input function from browser_utils
     try:
-        # Get the asyncio loop the manager is running on (assuming it's the main one for now)
-        # This might need refinement if multiple loops are involved.
-        loop = asyncio.get_running_loop()
+        from .browser_utils import handle_browser_input, active_cdp_session, active_screencast_running
+    except ImportError:
+        error_msg = "Could not import handle_browser_input from browser_utils"
+        print(f"BROWSER INPUT ERROR: {error_msg}")
+        send_log(f"Input error: {error_msg}", "❌", log_type='status')
+        return
+    
+    # Check if we have an active CDP session
+    if not active_cdp_session:
+        error_msg = "No active CDP session for input handling"
+        print(f"BROWSER INPUT ERROR: {error_msg}")
+        send_log(f"Input error: {error_msg}", "❌", log_type='status')
+        return
+    
+    # Since the browser runs in an asyncio loop, and this handler
+    # likely runs in a separate thread (Flask/SocketIO default), we need
+    # to schedule the async input handler function in the main loop.
+    try:
+        # Get the asyncio loop (assuming it's the main one for now)
+        print(f"BROWSER INPUT: Attempting to get running asyncio loop")
+        try:
+            loop = asyncio.get_running_loop()
+            print(f"BROWSER INPUT: Got running loop: {loop}")
+        except RuntimeError as loop_error:
+            print(f"BROWSER INPUT ERROR: No running asyncio loop found: {loop_error}")
+            send_log(f"Input error: No running asyncio loop", "❌", log_type='status')
+            return
+            
         # Schedule the coroutine call
-        asyncio.run_coroutine_threadsafe(
-            manager.handle_browser_input(event_type, details),
+        print(f"BROWSER INPUT: Scheduling handle_browser_input for event: {event_type}")
+        task = asyncio.run_coroutine_threadsafe(
+            handle_browser_input(event_type, details),
             loop
         )
-        # print(f"Scheduled handle_browser_input for event: {event_type}") # Debug
-    except RuntimeError:
-        logging.error("No running asyncio event loop found to schedule browser input.")
+        print(f"BROWSER INPUT: Successfully scheduled task: {task}")
+        send_log(f"Input {event_type} scheduled for processing", "✅", log_type='status')
+        
+    except RuntimeError as e:
+        error_msg = f"No running asyncio event loop found: {e}"
+        print(f"BROWSER INPUT ERROR: {error_msg}")
+        logging.error(error_msg)
+        send_log(f"Input error: {error_msg}", "❌", log_type='status')
     except Exception as e:
-        logging.error(f"Error scheduling browser input handler: {e}")
+        error_msg = f"Error scheduling browser input handler: {e}"
+        print(f"BROWSER INPUT ERROR: {error_msg}")
+        logging.error(error_msg)
+        import traceback
+        print(f"BROWSER INPUT ERROR TRACEBACK: {traceback.format_exc()}")
+        send_log(f"Input error: {error_msg}", "❌", log_type='status')
 
 
 def start_log_server(host='127.0.0.1', port=5009):
