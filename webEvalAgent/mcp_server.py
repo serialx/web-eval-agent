@@ -6,20 +6,10 @@ import argparse
 import traceback
 import uuid
 from enum import Enum
-import logging # Import logging
 
 # Set the API key to a fake key to avoid error in backend
 os.environ["ANTHROPIC_API_KEY"] = 'not_a_real_key'
 os.environ["ANONYMIZED_TELEMETRY"] = 'false'
-
-# Configure logging to show DEBUG messages
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logging.getLogger('websockets').setLevel(logging.INFO) # Reduce noise from websockets library if used by playwright
-logging.getLogger('playwright').setLevel(logging.INFO) # Reduce noise from playwright library
 
 # MCP imports
 from mcp.server.fastmcp import FastMCP, Context

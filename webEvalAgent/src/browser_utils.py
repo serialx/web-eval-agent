@@ -97,10 +97,8 @@ async def handle_console_message(message):
         text = message.text
         log_entry = { "type": message.type, "text": text, "location": message.location, "timestamp": asyncio.get_event_loop().time() }
         console_log_storage.append(log_entry)
-        # Send to dashboard with type 'console'
         send_log(f"CONSOLE [{log_entry['type']}]: {log_entry['text']}", "🖥️", log_type='console')
     except Exception as e:
-        # Send to dashboard with type 'status' or 'agent' for errors
         send_log(f"Error handling console message: {e}", "❌", log_type='status')
 
 async def handle_request(request):
@@ -126,11 +124,9 @@ async def handle_request(request):
 
         request_entry = { "url": request.url, "method": request.method, "headers": headers, "postData": post_data, "timestamp": asyncio.get_event_loop().time(), "resourceType": request.resource_type, "is_navigation": request.is_navigation_request(), "id": id(request) }
         network_request_storage.append(request_entry)
-        # Send to dashboard with type 'network'
         send_log(f"NET REQ [{request_entry['method']}]: {request_entry['url']}", "➡️", log_type='network')
     except Exception as e:
         url = request.url if request else 'Unknown URL'
-        # Send error to dashboard with type 'status' or 'agent'
         send_log(f"Error handling request event for {url}: {e}", "❌", log_type='status')
 
 async def handle_response(response):
@@ -150,7 +146,7 @@ async def handle_response(response):
         try:
             body_buffer = await response.body()
             body_size = len(body_buffer) if body_buffer else 0
-        except Exception as e: print(f"Warning: Unexpected error getting response body size for {url}: {e}")
+        except Exception as e: pass
 
         for req in network_request_storage:
             if req.get("id") == req_id and "response_status" not in req:
@@ -158,14 +154,11 @@ async def handle_response(response):
                 req["response_headers"] = headers
                 req["response_body_size"] = body_size
                 req["response_timestamp"] = asyncio.get_event_loop().time()
-                # Send to dashboard with type 'network'
                 send_log(f"NET RESP [{status}]: {url}", "⬅️", log_type='network')
                 break
         else:
-            # Send unmatched response to dashboard with type 'network'
-             send_log(f"NET RESP* [{status}]: {url} (req not matched/updated)", "⬅️", log_type='network')
+            send_log(f"NET RESP* [{status}]: {url} (req not matched/updated)", "⬅️", log_type='network')
     except Exception as e:
-        # Send error to dashboard with type 'status' or 'agent'
         send_log(f"Error handling response event for {url}: {e}", "❌", log_type='status')
 
 # Read the JavaScript overlay code from the file
@@ -182,27 +175,21 @@ async def inject_agent_control_overlay(page: PlaywrightPage):
     try:
         # First try with evaluate
         try:
-            # send_log("Attempting to inject overlay with page.evaluate()...", "🔄", log_type='status')
             await page.evaluate(AGENT_CONTROL_OVERLAY_JS)
-            # send_log("Agent control overlay injected with page.evaluate().", "🎮", log_type='status')
             return
         except Exception as e1:
             send_log(f"Failed to inject with page.evaluate(): {e1}", "⚠️", log_type='status')
             
         # Try with add_script_tag as fallback
         try:
-            # send_log("Attempting to inject overlay with page.add_script_tag()...", "🔄", log_type='status')
             await page.add_script_tag(content=AGENT_CONTROL_OVERLAY_JS)
-            # send_log("Agent control overlay injected with page.add_script_tag().", "🎮", log_type='status')
             return
         except Exception as e2:
             send_log(f"Failed to inject with page.add_script_tag(): {e2}", "⚠️", log_type='status')
             
         # Try with evaluate_handle as last resort
         try:
-            # send_log("Attempting to inject overlay with page.evaluate_handle()...", "🔄", log_type='status')
             await page.evaluate_handle(f"() => {{ {AGENT_CONTROL_OVERLAY_JS} }}")
-            # send_log("Agent control overlay injected with page.evaluate_handle().", "🎮", log_type='status')
             return
         except Exception as e3:
             send_log(f"Failed to inject with page.evaluate_handle(): {e3}", "⚠️", log_type='status')
@@ -223,16 +210,10 @@ async def setup_page_agent_controls(page: PlaywrightPage):
         await page.expose_function('stopAgent', lambda: stop_agent())
         await page.expose_function('getAgentState', lambda: get_agent_state())
         
-        # Inject the agent control overlay
-        # await inject_agent_control_overlay(page)
-        
         # Add navigation listener to re-inject overlay after navigation
         async def handle_frame_navigation(frame):
             if frame is page.main_frame:
                 send_log(f"Page navigated to: {page.url}", "🧭", log_type='status')
-                # Wait a bit for the page to stabilize after navigation
-                # await asyncio.sleep(0.5)
-                # await inject_agent_control_overlay(page)
         
         # Listen for framenavigated events
         page.on("framenavigated", lambda frame: asyncio.create_task(handle_frame_navigation(frame)))
@@ -242,7 +223,6 @@ async def setup_page_agent_controls(page: PlaywrightPage):
         async def handle_load():
             send_log(f"Page load event on: {page.url}", "🔄", log_type='status')
             await asyncio.sleep(0.5)  # Wait a bit for the page to stabilize
-            # await inject_agent_control_overlay(page)
             
         page.on("load", lambda: asyncio.create_task(handle_load()))
         send_log("Added load event listener to page", "🔄", log_type='status')
@@ -306,7 +286,7 @@ def get_agent_state():
         from .log_server import socketio
         socketio.emit('agent_state', {'state': state})
     except Exception as e:
-        print(f"Error sending agent state update: {e}")
+        pass
         
     return state
 
@@ -329,22 +309,16 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
     """
     global active_cdp_session, active_screencast_running
     
-    print(f"BROWSER_UTILS: handle_browser_input called with event_type={event_type}")
-    print(f"BROWSER_UTILS: Input details: {details}")
-    
     # Check if we have an active CDP session
     if not active_cdp_session:
-        print(f"BROWSER_UTILS ERROR: No active CDP session for input handling")
         send_log(f"Input error: No active CDP session", "❌", log_type='status')
         return
         
     # Check if screencast is running
     if not active_screencast_running:
-        print(f"BROWSER_UTILS ERROR: Screencast not running for input handling")
         send_log(f"Input error: Screencast not running", "❌", log_type='status')
         return
 
-    print(f"BROWSER_UTILS: Processing browser input event: {event_type}, Details: {details}")
     send_log(f"Processing input: {event_type}", "🔄", log_type='status')
 
     try:
@@ -356,8 +330,6 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
             click_count = details.get('clickCount', 1)
             # Modifiers might be needed for complex interactions, but start simple
             modifiers = 0 # TODO: Map ctrlKey, shiftKey etc. if needed
-
-            print(f"BROWSER_UTILS: Sending mousePressed event: button={button}, x={x}, y={y}, clickCount={click_count}")
             
             # Mouse Pressed
             mouse_pressed_params = {
@@ -368,24 +340,18 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
                 "modifiers": modifiers,
                 "clickCount": click_count
             }
-            print(f"BROWSER_UTILS: mousePressed params: {mouse_pressed_params}")
             
             try:
                 await active_cdp_session.send("Input.dispatchMouseEvent", mouse_pressed_params)
-                print(f"BROWSER_UTILS: mousePressed event sent successfully")
             except Exception as press_error:
-                print(f"BROWSER_UTILS ERROR: Failed to send mousePressed: {press_error}")
                 import traceback
-                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
                 send_log(f"Input error: Failed to send mousePressed: {press_error}", "❌", log_type='status')
                 return
             
             # Short delay often helps reliability
-            print(f"BROWSER_UTILS: Waiting 50ms between press and release")
             await asyncio.sleep(0.05)
             
             # Mouse Released
-            print(f"BROWSER_UTILS: Sending mouseReleased event: button={button}, x={x}, y={y}, clickCount={click_count}")
             mouse_released_params = {
                 "type": "mouseReleased",
                 "button": button,
@@ -394,19 +360,14 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
                 "modifiers": modifiers,
                 "clickCount": click_count
             }
-            print(f"BROWSER_UTILS: mouseReleased params: {mouse_released_params}")
             
             try:
                 await active_cdp_session.send("Input.dispatchMouseEvent", mouse_released_params)
-                print(f"BROWSER_UTILS: mouseReleased event sent successfully")
             except Exception as release_error:
-                print(f"BROWSER_UTILS ERROR: Failed to send mouseReleased: {release_error}")
                 import traceback
-                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
                 send_log(f"Input error: Failed to send mouseReleased: {release_error}", "❌", log_type='status')
                 return
             
-            print(f"BROWSER_UTILS: Sent CDP click event at ({x},{y}), button: {button}")
             send_log(f"Click sent at ({x},{y})", "👆", log_type='status')
 
         elif event_type == 'keydown':
@@ -415,27 +376,27 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
             code = details.get('code', '')
             modifiers = _map_modifiers(details)
             
-            print(f"BROWSER_UTILS: Sending keyDown event: key={key}, code={code}, modifiers={modifiers}")
-            
+            # For keyDown events, include the 'text' parameter for printable characters
+            # This is necessary for text to appear in input fields
             key_params = {
                 "type": "keyDown",
                 "modifiers": modifiers,
                 "key": key,
                 "code": code,
             }
-            print(f"BROWSER_UTILS: keyDown params: {key_params}")
+            
+            # Add text parameter for printable characters (letters, numbers, symbols)
+            # Skip for special keys like Enter, Escape, Arrow keys, etc.
+            if len(key) == 1:  # Simple check for printable characters (single character keys)
+                key_params["text"] = key
             
             try:
                 await active_cdp_session.send("Input.dispatchKeyEvent", key_params)
-                print(f"BROWSER_UTILS: keyDown event sent successfully")
             except Exception as key_error:
-                print(f"BROWSER_UTILS ERROR: Failed to send keyDown: {key_error}")
                 import traceback
-                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
                 send_log(f"Input error: Failed to send keyDown: {key_error}", "❌", log_type='status')
                 return
             
-            print(f"BROWSER_UTILS: Sent CDP keydown event: key={key}")
             send_log(f"Key down sent: {key}", "⌨️", log_type='status')
 
         elif event_type == 'keyup':
@@ -443,27 +404,20 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
             code = details.get('code', '')
             modifiers = _map_modifiers(details)
             
-            print(f"BROWSER_UTILS: Sending keyUp event: key={key}, code={code}, modifiers={modifiers}")
-            
             key_params = {
                 "type": "keyUp",
                 "modifiers": modifiers,
                 "key": key,
                 "code": code,
             }
-            print(f"BROWSER_UTILS: keyUp params: {key_params}")
             
             try:
                 await active_cdp_session.send("Input.dispatchKeyEvent", key_params)
-                print(f"BROWSER_UTILS: keyUp event sent successfully")
             except Exception as key_error:
-                print(f"BROWSER_UTILS ERROR: Failed to send keyUp: {key_error}")
                 import traceback
-                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
                 send_log(f"Input error: Failed to send keyUp: {key_error}", "❌", log_type='status')
                 return
             
-            print(f"BROWSER_UTILS: Sent CDP keyup event: key={key}")
             send_log(f"Key up sent: {key}", "⌨️", log_type='status')
 
         elif event_type == 'scroll':
@@ -473,8 +427,6 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
             delta_x = details.get('deltaX', 0)
             delta_y = details.get('deltaY', 0)
             
-            print(f"BROWSER_UTILS: Sending mouseWheel event: x={x}, y={y}, deltaX={delta_x}, deltaY={delta_y}")
-            
             wheel_params = {
                 "type": "mouseWheel",
                 "x": x,
@@ -483,42 +435,32 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
                 "deltaY": delta_y,
                 "modifiers": 0 # Modifiers usually not needed for scroll
             }
-            print(f"BROWSER_UTILS: mouseWheel params: {wheel_params}")
             
             try:
                 await active_cdp_session.send("Input.dispatchMouseEvent", wheel_params)
-                print(f"BROWSER_UTILS: mouseWheel event sent successfully")
             except Exception as wheel_error:
-                print(f"BROWSER_UTILS ERROR: Failed to send mouseWheel: {wheel_error}")
                 import traceback
-                print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
                 send_log(f"Input error: Failed to send mouseWheel: {wheel_error}", "❌", log_type='status')
                 return
             
-            print(f"BROWSER_UTILS: Sent CDP scroll event: dX={delta_x}, dY={delta_y} at ({x},{y})")
             send_log(f"Scroll sent: dY={delta_y}", "📜", log_type='status')
 
         else:
-            print(f"BROWSER_UTILS WARNING: Received unknown browser input event type: {event_type}")
             send_log(f"Unknown input type: {event_type}", "❓", log_type='status')
 
     except Exception as e:
-        print(f"BROWSER_UTILS ERROR: Error dispatching CDP input event '{event_type}': {e}")
         import traceback
-        print(f"BROWSER_UTILS ERROR TRACEBACK: {traceback.format_exc()}")
         send_log(f"Input error: {e}", "❌", log_type='status')
         
         # Check if the session is closed
         if "Target closed" in str(e) or "Session closed" in str(e) or "Connection closed" in str(e):
-            print(f"BROWSER_UTILS WARNING: CDP session seems closed, stopping input handling.")
             send_log("CDP session closed, stopping input handling", "⚠️", log_type='status')
             active_screencast_running = False # Mark as stopped
             if active_cdp_session:
                 try: 
                     await active_cdp_session.detach()
-                    print(f"BROWSER_UTILS: CDP session detached")
                 except Exception as detach_error: 
-                    print(f"BROWSER_UTILS ERROR: Failed to detach CDP session: {detach_error}")
+                    pass
                 active_cdp_session = None
 
 def _map_modifiers(details: Dict) -> int:
@@ -541,17 +483,11 @@ def set_screencast_running(running: bool = True) -> None:
     """
     global active_screencast_running
     active_screencast_running = running
-    # print(f"BROWSER_UTILS: Set active_screencast_running to {running}")
-    # if running:
-        # send_log("Screencast marked as running, input handling enabled", "✅", log_type='status')
-    # else:
-        # send_log("Screencast marked as stopped, input handling disabled", "⚠️", log_type='status')
 
 async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> str:
     global browser_task_loop
     # Store the current asyncio loop for input handling
     browser_task_loop = asyncio.get_running_loop()
-    print(f"BROWSER_UTILS: Stored browser task loop: {browser_task_loop}")
     """
     Run a task using browser-use agent, sending logs to the dashboard.
 
@@ -600,7 +536,7 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         playwright = await async_playwright().start()
         # Launch with CDP enabled - use headless=False as recommended
         playwright_browser = await playwright.chromium.launch(
-            headless=False,  # Use non-headless mode with remote debugging
+            headless=True,  # Use non-headless mode with remote debugging
             args=["--remote-debugging-port=9222"]
         )
         
@@ -713,7 +649,6 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                  raise RuntimeError("Original _create_context not stored correctly")
 
             raw_playwright_context = await original_create_context(self, browser_pw)
-            # send_log("BrowserContext patched, attaching log handlers...", "🔧", log_type='status') # Type: status
 
             if raw_playwright_context:
                 raw_playwright_context.on("console", handle_console_message) # Handlers now send correct type
@@ -767,7 +702,6 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
                     if current_page:
                         send_log(f"Re-injecting overlay after step {step_number} into page {current_page.url}", "🔄", log_type='status')
-                        # await inject_agent_control_overlay(current_page)
                     else:
                         send_log(f"Could not get current page from agent context for step {step_number}", "⚠️", log_type='status')
                 else:
@@ -834,7 +768,6 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         
         # Clear the browser task loop reference
         browser_task_loop = None
-        print("BROWSER_UTILS: Cleared browser task loop reference")
 
 # Note: Removed cleanup_resources() function as cleanup is now in finally block
 # async def cleanup_resources() -> None:

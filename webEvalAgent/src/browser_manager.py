@@ -4,7 +4,6 @@ import asyncio
 import base64
 import socket
 from typing import Dict, List, Optional
-import logging
 
 # Import log server functions
 # We will add send_browser_view later
@@ -25,7 +24,7 @@ class PlaywrightBrowserManager:
     def __init__(self):
         # Check if an instance already exists
         if PlaywrightBrowserManager._instance is not None:
-            logging.warning("PlaywrightBrowserManager is a singleton. Use get_instance() instead.")
+            send_log("PlaywrightBrowserManager is a singleton. Use get_instance() instead.", "⚠️", log_type='status')
             return
             
         # Set this instance as the singleton
@@ -47,38 +46,29 @@ class PlaywrightBrowserManager:
             
         if not PlaywrightBrowserManager._log_server_started:
             try:
-                # Send status message
                 send_log("Initializing Operative Agent (Browser Manager)...", "🚀", log_type='status')
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 try:
                     s.connect(('localhost', 5009))
                     s.close()
-                    print("Log server already appears to be running, skipping initialization")
                     PlaywrightBrowserManager._log_server_started = True
-                    # Send status message
                     send_log("Connected to existing log server (Browser Manager).", "✅", log_type='status')
                 except (socket.error, Exception):
                     s.close()
-                    start_log_server() # This itself sends logs now
+                    start_log_server()
                     await asyncio.sleep(1)
-                    open_log_dashboard() # This itself sends logs now
+                    open_log_dashboard()
                     PlaywrightBrowserManager._log_server_started = True
-                    # Send status message - might be redundant if start_log_server logs
-                    # send_log("Log server started and dashboard opened from browser manager.", "✅", log_type='status')
             except Exception as e:
-                print(f"Error starting/checking log server/dashboard: {e}")
-                # Send status message
                 send_log(f"Error with log server/dashboard (Browser Manager): {e}", "❌", log_type='status')
 
         # Import here to avoid module import issues
-        # import asyncio  # Already imported at the top of the file
         from playwright.async_api import async_playwright
 
         self.playwright = await async_playwright().start()
         # Launch headless
         self.browser = await self.playwright.chromium.launch(headless=True)
         self.is_initialized = True
-        # Send status message
         send_log("Playwright initialized (Browser Manager - Headless).", "🎭", log_type='status')
 
     async def close(self) -> None:
@@ -87,30 +77,30 @@ class PlaywrightBrowserManager:
         if self.cdp_session and self.screencast_task_running:
             try:
                 await self.cdp_session.send("Page.stopScreencast")
-            except Exception as e:
-                logging.error(f"Error stopping screencast: {e}")
+            except Exception:
+                pass
             self.screencast_task_running = False
 
         # Detach CDP session if exists
         if self.cdp_session:
             try:
                 await self.cdp_session.detach()
-            except Exception as e:
-                logging.error(f"Error detaching CDP session: {e}")
+            except Exception:
+                pass
             self.cdp_session = None
 
         if self.page:
             try:
                 await self.page.close()
-            except Exception as e:
-                 logging.error(f"Error closing page: {e}")
+            except Exception:
+                pass
             self.page = None
 
         if self.browser:
             try:
                 await self.browser.close()
-            except Exception as e:
-                 logging.error(f"Error closing browser: {e}")
+            except Exception:
+                pass
             self.browser = None
             
         if self.playwright:
@@ -120,7 +110,6 @@ class PlaywrightBrowserManager:
         self.is_initialized = False
         self.console_logs = []
         self.network_requests = []
-        # Send status message
         send_log("Browser manager closed.", "🛑", log_type='status')
 
     async def open_url(self, url: str) -> str:
@@ -133,20 +122,20 @@ class PlaywrightBrowserManager:
         if self.cdp_session and self.screencast_task_running:
             try:
                 await self.cdp_session.send("Page.stopScreencast")
-            except Exception as e:
-                logging.warning(f"Could not stop previous screencast: {e}")
+            except Exception:
+                pass
             self.screencast_task_running = False
         if self.cdp_session:
              try:
                  await self.cdp_session.detach()
-             except Exception as e:
-                 logging.warning(f"Could not detach previous CDP session: {e}")
+             except Exception:
+                 pass
              self.cdp_session = None
         if self.page:
             try:
                 await self.page.close()
-            except Exception as e:
-                logging.warning(f"Could not close previous page: {e}")
+            except Exception:
+                pass
             self.page = None
 
         # Clear previous logs and requests
@@ -165,7 +154,6 @@ class PlaywrightBrowserManager:
         
         # Navigate to the URL
         await self.page.goto(url, wait_until="networkidle")
-        # Send agent/status message
         send_log(f"Navigated to: {url} (Headless Mode)", "🌍", log_type='agent')
 
         # --- Start CDP Screencast ---
@@ -173,7 +161,6 @@ class PlaywrightBrowserManager:
             self.cdp_session = await self.page.context.new_cdp_session(self.page)
             # Listen for screencast frames
             self.cdp_session.on("Page.screencastFrame", self._handle_screencast_frame)
-            logging.debug("Attempting to start CDP screencast...")
             # Start the screencast
             await self.cdp_session.send("Page.startScreencast", {
                 "format": "png",  # jpeg is generally smaller than png
@@ -182,17 +169,14 @@ class PlaywrightBrowserManager:
                 "maxHeight": 1080   # Optional: limit height
             })
             self.screencast_task_running = True
-            logging.info("CDP screencast started successfully.")
             send_log("CDP screencast started.", "📹", log_type='status')
         except Exception as e:
-            logging.exception(f"Failed to start CDP screencast: {e}") # Use logging.exception to include traceback
             send_log(f"Failed to start CDP screencast: {e}", "❌", log_type='status')
             self.screencast_task_running = False
-            if self.cdp_session: # Attempt cleanup if session was created
+            if self.cdp_session:
                  try: await self.cdp_session.detach()
                  except: pass
                  self.cdp_session = None
-            # Return an error message or raise? For now, log and continue
             return f"Opened {url}, but failed to start screen streaming."
 
         return f"Opened {url} successfully in headless mode. Streaming view to dashboard."
@@ -206,12 +190,10 @@ class PlaywrightBrowserManager:
             "timestamp": asyncio.get_event_loop().time()
         }
         self.console_logs.append(log_entry)
-        # Send console log to dashboard with type 'console'
-        # Use try-except as send_log might fail if server isn't ready
         try:
             send_log(f"CONSOLE [{log_entry['type']}]: {log_entry['text']}", "🖥️", log_type='console')
-        except Exception as e:
-            logging.warning(f"Failed to send console log via SocketIO: {e}")
+        except Exception:
+            pass
 
     async def _handle_request(self, request) -> None:
         """Handle network requests."""
@@ -224,11 +206,10 @@ class PlaywrightBrowserManager:
             "id": id(request)
         }
         self.network_requests.append(request_entry)
-        # Send request info to dashboard with type 'network'
         try:
             send_log(f"NET REQ [{request_entry['method']}]: {request_entry['url']}", "➡️", log_type='network')
-        except Exception as e:
-            logging.warning(f"Failed to send network request log via SocketIO: {e}")
+        except Exception:
+            pass
 
     async def _handle_response(self, response) -> None:
         """Handle network responses."""
@@ -245,19 +226,17 @@ class PlaywrightBrowserManager:
             # Use id for more reliable matching if available
             if req.get("id") == id(response.request) and "response" not in req:
                 req["response"] = response_data
-                # Send response info to dashboard with type 'network'
                 try:
                     send_log(f"NET RESP [{response_data['status']}]: {req['url']}", "⬅️", log_type='network')
-                except Exception as e:
-                    logging.warning(f"Failed to send network response log via SocketIO: {e}")
+                except Exception:
+                    pass
                 found = True
                 break
         if not found:
-             # Log responses even if request wasn't found with type 'network'
              try:
                  send_log(f"NET RESP* [{response_data['status']}]: {response.url} (request not matched)", "⬅️", log_type='network')
-             except Exception as e:
-                 logging.warning(f"Failed to send unmatched network response log via SocketIO: {e}")
+             except Exception:
+                 pass
 
     async def get_console_logs(self, last_n: int) -> List[Dict]:
         """Get console logs collected so far with deduplication of repeated messages."""
@@ -334,31 +313,23 @@ class PlaywrightBrowserManager:
         session_id = params.get('sessionId')
 
         if image_data and session_id:
-            logging.debug(f"Received screencast frame (sessionId: {session_id}), data length: {len(image_data)}")
             # Format as data URL
             image_data_url = f"data:image/jpeg;base64,{image_data}"
 
             # Send to frontend via SocketIO
             try:
-                logging.debug(f"Calling send_browser_view for frame (sessionId: {session_id})...")
                 # Use asyncio.create_task to avoid blocking the CDP event handler
                 asyncio.create_task(send_browser_view(image_data_url))
-                logging.debug(f"Scheduled send_browser_view for frame (sessionId: {session_id}).")
-            except Exception as e:
-                logging.error(f"Failed to send browser view update: {e}")
+            except Exception:
+                pass
 
             # IMPORTANT: Acknowledge the frame back to the browser
             try:
-                logging.debug(f"Acknowledging screencast frame (sessionId: {session_id})...")
                 await self.cdp_session.send("Page.screencastFrameAck", {"sessionId": session_id})
-                logging.debug(f"Acknowledged screencast frame (sessionId: {session_id}).")
             except Exception as e:
-                # If acknowledging fails, the stream might stop. Log error.
-                logging.error(f"Failed to acknowledge screencast frame (sessionId: {session_id}): {e}")
-                # Consider stopping the screencast or attempting to recover?
-                # For now, just log the error. If the session is closed, this will likely fail.
+                # If acknowledging fails, the stream might stop
+                # For now, just handle the error. If the session is closed, this will likely fail.
                 if "Target closed" in str(e) or "Session closed" in str(e) or "Connection closed" in str(e):
-                    logging.warning(f"CDP session seems closed while acknowledging frame (sessionId: {session_id}), stopping screencast handling.")
                     self.screencast_task_running = False # Mark as stopped
                     if self.cdp_session:
                         try: await self.cdp_session.detach()
@@ -369,25 +340,16 @@ class PlaywrightBrowserManager:
     # --- Input Handling ---
     async def handle_browser_input(self, event_type: str, details: Dict) -> None:
         """Handles input events received from the frontend via log_server."""
-        print(f"BROWSER_MANAGER: handle_browser_input called with event_type={event_type}")
-        print(f"BROWSER_MANAGER: Input details: {details}")
-        
         # Check if we have an active CDP session
         if not self.cdp_session:
-            print(f"BROWSER_MANAGER ERROR: No active CDP session for input handling")
-            logging.warning(f"Cannot handle browser input '{event_type}': No active CDP session.")
             send_log(f"Input error: No active CDP session", "❌", log_type='status')
             return
             
         # Check if screencast is running
         if not self.screencast_task_running:
-            print(f"BROWSER_MANAGER ERROR: Screencast not running for input handling")
-            logging.warning(f"Cannot handle browser input '{event_type}': Screencast stopped.")
             send_log(f"Input error: Screencast not running", "❌", log_type='status')
             return
 
-        print(f"BROWSER_MANAGER: Processing browser input event: {event_type}, Details: {details}")
-        logging.debug(f"Processing browser input event: {event_type}, Details: {details}")
         send_log(f"Processing input: {event_type}", "🔄", log_type='status')
 
         try:
@@ -399,8 +361,6 @@ class PlaywrightBrowserManager:
                 click_count = details.get('clickCount', 1)
                 # Modifiers might be needed for complex interactions, but start simple
                 modifiers = 0 # TODO: Map ctrlKey, shiftKey etc. if needed
-
-                print(f"BROWSER_MANAGER: Sending mousePressed event: button={button}, x={x}, y={y}, clickCount={click_count}")
                 
                 # Mouse Pressed
                 mouse_pressed_params = {
@@ -411,24 +371,17 @@ class PlaywrightBrowserManager:
                     "modifiers": modifiers,
                     "clickCount": click_count
                 }
-                print(f"BROWSER_MANAGER: mousePressed params: {mouse_pressed_params}")
                 
                 try:
                     await self.cdp_session.send("Input.dispatchMouseEvent", mouse_pressed_params)
-                    print(f"BROWSER_MANAGER: mousePressed event sent successfully")
                 except Exception as press_error:
-                    print(f"BROWSER_MANAGER ERROR: Failed to send mousePressed: {press_error}")
-                    import traceback
-                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
                     send_log(f"Input error: Failed to send mousePressed: {press_error}", "❌", log_type='status')
                     return
                 
                 # Short delay often helps reliability
-                print(f"BROWSER_MANAGER: Waiting 50ms between press and release")
                 await asyncio.sleep(0.05)
                 
                 # Mouse Released
-                print(f"BROWSER_MANAGER: Sending mouseReleased event: button={button}, x={x}, y={y}, clickCount={click_count}")
                 mouse_released_params = {
                     "type": "mouseReleased",
                     "button": button,
@@ -437,20 +390,13 @@ class PlaywrightBrowserManager:
                     "modifiers": modifiers,
                     "clickCount": click_count
                 }
-                print(f"BROWSER_MANAGER: mouseReleased params: {mouse_released_params}")
                 
                 try:
                     await self.cdp_session.send("Input.dispatchMouseEvent", mouse_released_params)
-                    print(f"BROWSER_MANAGER: mouseReleased event sent successfully")
                 except Exception as release_error:
-                    print(f"BROWSER_MANAGER ERROR: Failed to send mouseReleased: {release_error}")
-                    import traceback
-                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
                     send_log(f"Input error: Failed to send mouseReleased: {release_error}", "❌", log_type='status')
                     return
                 
-                print(f"BROWSER_MANAGER: Sent CDP click event at ({x},{y}), button: {button}")
-                logging.debug(f"Sent CDP click event at ({x},{y}), button: {button}")
                 send_log(f"Click sent at ({x},{y})", "👆", log_type='status')
 
             elif event_type == 'keydown':
@@ -459,28 +405,19 @@ class PlaywrightBrowserManager:
                 code = details.get('code', '')
                 modifiers = self._map_modifiers(details)
                 
-                print(f"BROWSER_MANAGER: Sending keyDown event: key={key}, code={code}, modifiers={modifiers}")
-                
                 key_params = {
                     "type": "keyDown",
                     "modifiers": modifiers,
                     "key": key,
                     "code": code,
                 }
-                print(f"BROWSER_MANAGER: keyDown params: {key_params}")
                 
                 try:
                     await self.cdp_session.send("Input.dispatchKeyEvent", key_params)
-                    print(f"BROWSER_MANAGER: keyDown event sent successfully")
                 except Exception as key_error:
-                    print(f"BROWSER_MANAGER ERROR: Failed to send keyDown: {key_error}")
-                    import traceback
-                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
                     send_log(f"Input error: Failed to send keyDown: {key_error}", "❌", log_type='status')
                     return
                 
-                print(f"BROWSER_MANAGER: Sent CDP keydown event: key={key}")
-                logging.debug(f"Sent CDP keydown event: key={key}")
                 send_log(f"Key down sent: {key}", "⌨️", log_type='status')
 
             elif event_type == 'keyup':
@@ -488,28 +425,19 @@ class PlaywrightBrowserManager:
                 code = details.get('code', '')
                 modifiers = self._map_modifiers(details)
                 
-                print(f"BROWSER_MANAGER: Sending keyUp event: key={key}, code={code}, modifiers={modifiers}")
-                
                 key_params = {
                     "type": "keyUp",
                     "modifiers": modifiers,
                     "key": key,
                     "code": code,
                 }
-                print(f"BROWSER_MANAGER: keyUp params: {key_params}")
                 
                 try:
                     await self.cdp_session.send("Input.dispatchKeyEvent", key_params)
-                    print(f"BROWSER_MANAGER: keyUp event sent successfully")
                 except Exception as key_error:
-                    print(f"BROWSER_MANAGER ERROR: Failed to send keyUp: {key_error}")
-                    import traceback
-                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
                     send_log(f"Input error: Failed to send keyUp: {key_error}", "❌", log_type='status')
                     return
                 
-                print(f"BROWSER_MANAGER: Sent CDP keyup event: key={key}")
-                logging.debug(f"Sent CDP keyup event: key={key}")
                 send_log(f"Key up sent: {key}", "⌨️", log_type='status')
 
             elif event_type == 'scroll':
@@ -519,8 +447,6 @@ class PlaywrightBrowserManager:
                 delta_x = details.get('deltaX', 0)
                 delta_y = details.get('deltaY', 0)
                 
-                print(f"BROWSER_MANAGER: Sending mouseWheel event: x={x}, y={y}, deltaX={delta_x}, deltaY={delta_y}")
-                
                 wheel_params = {
                     "type": "mouseWheel",
                     "x": x,
@@ -529,46 +455,30 @@ class PlaywrightBrowserManager:
                     "deltaY": delta_y,
                     "modifiers": 0 # Modifiers usually not needed for scroll
                 }
-                print(f"BROWSER_MANAGER: mouseWheel params: {wheel_params}")
                 
                 try:
                     await self.cdp_session.send("Input.dispatchMouseEvent", wheel_params)
-                    print(f"BROWSER_MANAGER: mouseWheel event sent successfully")
                 except Exception as wheel_error:
-                    print(f"BROWSER_MANAGER ERROR: Failed to send mouseWheel: {wheel_error}")
-                    import traceback
-                    print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
                     send_log(f"Input error: Failed to send mouseWheel: {wheel_error}", "❌", log_type='status')
                     return
                 
-                print(f"BROWSER_MANAGER: Sent CDP scroll event: dX={delta_x}, dY={delta_y} at ({x},{y})")
-                logging.debug(f"Sent CDP scroll event: dX={delta_x}, dY={delta_y} at ({x},{y})")
                 send_log(f"Scroll sent: dY={delta_y}", "📜", log_type='status')
 
             else:
-                print(f"BROWSER_MANAGER WARNING: Received unknown browser input event type: {event_type}")
-                logging.warning(f"Received unknown browser input event type: {event_type}")
                 send_log(f"Unknown input type: {event_type}", "❓", log_type='status')
 
         except Exception as e:
-            print(f"BROWSER_MANAGER ERROR: Error dispatching CDP input event '{event_type}': {e}")
-            logging.error(f"Error dispatching CDP input event '{event_type}': {e}")
-            import traceback
-            print(f"BROWSER_MANAGER ERROR TRACEBACK: {traceback.format_exc()}")
             send_log(f"Input error: {e}", "❌", log_type='status')
             
             # Check if the session is closed
             if "Target closed" in str(e) or "Session closed" in str(e) or "Connection closed" in str(e):
-                print(f"BROWSER_MANAGER WARNING: CDP session seems closed, stopping input handling.")
-                logging.warning("CDP session seems closed, stopping input handling.")
                 send_log("CDP session closed, stopping input handling", "⚠️", log_type='status')
                 self.screencast_task_running = False # Mark as stopped
                 if self.cdp_session:
                     try: 
                         await self.cdp_session.detach()
-                        print(f"BROWSER_MANAGER: CDP session detached")
-                    except Exception as detach_error: 
-                        print(f"BROWSER_MANAGER ERROR: Failed to detach CDP session: {detach_error}")
+                    except: 
+                        pass
                     self.cdp_session = None
 
     def _map_modifiers(self, details: Dict) -> int:
