@@ -195,9 +195,9 @@ def handle_browser_input_event(data):
     # Log to the dashboard as well
     send_log(f"Received browser input: {event_type}", "🖱️", log_type='status')
     
-    # Import the handle_browser_input function from browser_utils
+    # Import the handle_browser_input function and other utilities from browser_utils
     try:
-        from .browser_utils import handle_browser_input, active_cdp_session, active_screencast_running
+        from .browser_utils import handle_browser_input, active_cdp_session, active_screencast_running, get_browser_task_loop
     except ImportError:
         error_msg = "Could not import handle_browser_input from browser_utils"
         print(f"BROWSER INPUT ERROR: {error_msg}")
@@ -215,15 +215,16 @@ def handle_browser_input_event(data):
     # likely runs in a separate thread (Flask/SocketIO default), we need
     # to schedule the async input handler function in the main loop.
     try:
-        # Get the asyncio loop (assuming it's the main one for now)
-        print(f"BROWSER INPUT: Attempting to get running asyncio loop")
-        try:
-            loop = asyncio.get_running_loop()
-            print(f"BROWSER INPUT: Got running loop: {loop}")
-        except RuntimeError as loop_error:
-            print(f"BROWSER INPUT ERROR: No running asyncio loop found: {loop_error}")
-            send_log(f"Input error: No running asyncio loop", "❌", log_type='status')
+        # Get the browser task loop from browser_utils
+        print(f"BROWSER INPUT: Attempting to get browser task loop")
+        loop = get_browser_task_loop()
+        
+        if loop is None:
+            print(f"BROWSER INPUT ERROR: Browser task loop is None")
+            send_log(f"Input error: Browser task loop not available", "❌", log_type='status')
             return
+            
+        print(f"BROWSER INPUT: Got browser task loop: {loop}")
             
         # Schedule the coroutine call
         print(f"BROWSER INPUT: Scheduling handle_browser_input for event: {event_type}")

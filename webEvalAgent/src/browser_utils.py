@@ -44,6 +44,7 @@ agent_instance = None  # Store agent instance
 original_create_context: Optional[callable] = None  # Store original patched method
 active_cdp_session = None  # Store active CDP session for input handling
 active_screencast_running = False  # Track if screencast is running
+browser_task_loop = None  # Store the asyncio loop used by run_browser_task
 
 # Define the maximum number of logs/requests to keep
 MAX_LOG_ENTRIES = 10
@@ -309,6 +310,12 @@ def get_agent_state():
         
     return state
 
+# Function to get the browser task loop
+def get_browser_task_loop():
+    """Get the asyncio loop used by run_browser_task."""
+    global browser_task_loop
+    return browser_task_loop
+
 # --- Input Handling Functions ---
 async def handle_browser_input(event_type: str, details: Dict) -> None:
     """Handle browser input events from the frontend.
@@ -541,6 +548,10 @@ def set_screencast_running(running: bool = True) -> None:
         # send_log("Screencast marked as stopped, input handling disabled", "⚠️", log_type='status')
 
 async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> str:
+    global browser_task_loop
+    # Store the current asyncio loop for input handling
+    browser_task_loop = asyncio.get_running_loop()
+    print(f"BROWSER_UTILS: Stored browser task loop: {browser_task_loop}")
     """
     Run a task using browser-use agent, sending logs to the dashboard.
 
@@ -820,6 +831,10 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
 
         # Clear the global instance if it was set
         agent_instance = None
+        
+        # Clear the browser task loop reference
+        browser_task_loop = None
+        print("BROWSER_UTILS: Cleared browser task loop reference")
 
 # Note: Removed cleanup_resources() function as cleanup is now in finally block
 # async def cleanup_resources() -> None:
