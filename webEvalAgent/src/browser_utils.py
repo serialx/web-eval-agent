@@ -50,20 +50,21 @@ browser_task_loop = None  # Store the asyncio loop used by run_browser_task
 MAX_LOG_ENTRIES = 10
 
 # --- URL Filtering for Network Requests ---
-def should_log_network_request(url: str) -> bool:
-    """Determine if a network request should be logged based on its URL.
+def should_log_network_request(request) -> bool:
+    """Determine if a network request should be logged based on its type and URL.
     
     Args:
-        url: The URL of the request
+        request: The Playwright request object
         
     Returns:
         bool: True if the request should be logged, False if it should be filtered out
     """
-    # Filter out common static assets that aren't usually relevant
-    # Add or remove patterns based on your specific needs
-    
-    # Skip node_modules requests (usually library code)
+    url = request.url
     if '/node_modules/' in url:
+        return False
+    
+    # Only log XHR requests
+    if request.resource_type != 'xhr' and request.resource_type != 'fetch':
         return False
         
     # Skip common static file types
@@ -76,15 +77,7 @@ def should_log_network_request(url: str) -> bool:
         if url.endswith(ext) or f"{ext}?" in url:  # Handle URLs with query params
             return False
     
-    # Always log API endpoints (usually important)
-    if '/api/' in url or '/graphql' in url:
-        return True
-        
-    # Log navigation requests (page loads)
-    if '?' not in url and '.' not in url.split('/')[-1]:
-        return True
-    
-    # By default, log everything that wasn't filtered
+    # By default, log all XHR requests that weren't filtered
     return True
 
 # --- Log Storage (Global within this module using deque) ---
@@ -103,7 +96,7 @@ async def handle_console_message(message):
 
 async def handle_request(request):
     try:
-        if not should_log_network_request(request.url):
+        if not should_log_network_request(request):
             return
             
         try: headers = await request.all_headers()
@@ -133,13 +126,21 @@ async def handle_response(response):
     req_id = id(response.request)
     url = response.url
     
-    if not should_log_network_request(url):
+    if not should_log_network_request(response.request):
         return
         
     try:
-        try: headers = await response.all_headers()
-        except PlaywrightError as e: headers = {"error": f"Resp Header Error: {e}"}
-        except Exception as e: headers = {"error": f"Unexpected Resp Header Error: {e}"}
+        try: 
+            headers = await response.all_headers()
+            # Check if content type is JSON
+            content_type = headers.get('content-type', '').lower()
+            if not ('application/json' in content_type or '+json' in content_type):
+                return  # Skip non-JSON responses
+        except PlaywrightError as e: 
+            headers = {"error": f"Resp Header Error: {e}"}
+        except Exception as e: 
+            headers = {"error": f"Unexpected Resp Header Error: {e}"}
+        
         status = response.status
 
         body_size = -1
@@ -154,10 +155,10 @@ async def handle_response(response):
                 req["response_headers"] = headers
                 req["response_body_size"] = body_size
                 req["response_timestamp"] = asyncio.get_event_loop().time()
-                send_log(f"NET RESP [{status}]: {url}", "⬅️", log_type='network')
+                send_log(f"NET RESP [{status}]: {url} (JSON)", "⬅️", log_type='network')
                 break
         else:
-            send_log(f"NET RESP* [{status}]: {url} (req not matched/updated)", "⬅️", log_type='network')
+            send_log(f"NET RESP* [{status}]: {url} (JSON, req not matched/updated)", "⬅️", log_type='network')
     except Exception as e:
         send_log(f"Error handling response event for {url}: {e}", "❌", log_type='status')
 
