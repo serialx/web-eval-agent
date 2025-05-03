@@ -344,7 +344,7 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
                 "clickCount": click_count
             }
             
-            send_log(f"Dispatching mousePressed at ({x},{y})", "➡️", log_type='status')
+            # send_log(f"Dispatching mousePressed at ({x},{y})", "➡️", log_type='status')
             try:
                 await active_cdp_session.send("Input.dispatchMouseEvent", mouse_pressed_params)
                 send_log(f"mousePressed dispatched successfully", "✅", log_type='status')
@@ -366,7 +366,7 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
                 "clickCount": click_count
             }
             
-            send_log(f"Dispatching mouseReleased at ({x},{y})", "➡️", log_type='status')
+            # send_log(f"Dispatching mouseReleased at ({x},{y})", "➡️", log_type='status')
             try:
                 await active_cdp_session.send("Input.dispatchMouseEvent", mouse_released_params)
                 send_log(f"mouseReleased dispatched successfully", "✅", log_type='status')
@@ -455,7 +455,7 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
                 send_log(f"Input error: Failed to send mouseWheel: {wheel_error}", "❌", log_type='status')
                 return
             
-            send_log(f"Scroll sent: dY={delta_y}", "📜", log_type='status')
+            # send_log(f"Scroll sent: dY={delta_y}", "📜", log_type='status')
 
         else:
             send_log(f"Unknown input type: {event_type}", "❓", log_type='status')

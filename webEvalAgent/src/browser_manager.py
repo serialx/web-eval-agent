@@ -462,7 +462,7 @@ class PlaywrightBrowserManager:
                     send_log(f"Input error: Failed to send mouseWheel: {wheel_error}", "❌", log_type='status')
                     return
                 
-                send_log(f"Scroll sent: dY={delta_y}", "📜", log_type='status')
+                # send_log(f"Scroll sent: dY={delta_y}", "📜", log_type='status')
 
             else:
                 send_log(f"Unknown input type: {event_type}", "❓", log_type='status')

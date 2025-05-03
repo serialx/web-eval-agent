@@ -26,4 +26,4 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
-webEvalAgent = ["templates/**", "src/agent_overlay.js"]
+webEvalAgent = ["templates/**", "src/agent_overlay.js", "src/**"]
