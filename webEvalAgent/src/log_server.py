@@ -190,6 +190,7 @@ def handle_browser_input_event(data):
             send_log(f"Input error: Browser task loop not available", "❌", log_type='status')
             return
             
+        send_log(f"Scheduling {event_type} input handler in browser task loop", "🔄", log_type='status')
         # Schedule the coroutine call
         task = asyncio.run_coroutine_threadsafe(
             handle_browser_input(event_type, details),

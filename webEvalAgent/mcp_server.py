@@ -44,7 +44,7 @@ else:
     print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
 
 @mcp.tool(name=BrowserTools.WEB_EVAL_AGENT)
-async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Context) -> list[TextContent]:
+async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Context, show_browser: bool=False) -> list[TextContent]:
     """Evaluate the user experience / interface of a web application.
 
     This tool allows the AI to assess the quality of user experience and interface design
@@ -58,12 +58,15 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
              "evaluate the navigation menu usability", "check form validation feedback")
              Be as detailed as possible in your task description. It could be anywhere from 2 sentences to 2 paragraphs.
         working_directory: Required. The root directory of the project
+        show_browser: Optional. Whether to show the browser window during evaluation. Defaults to False.
 
     Returns:
         list[list[TextContent, ImageContent]]: A detailed evaluation of the web application's UX/UI, including
                          observations, issues found, and recommendations for improvement
                          and screenshots of the web application during the evaluation
     """
+    # Convert show_browser to headless parameter (inverse logic)
+    headless = not show_browser
     is_valid = await validate_api_key(api_key)
 
     if not is_valid:
@@ -76,7 +79,7 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
         tool_call_id = str(uuid.uuid4())
         print(f"Generated new tool_call_id for web_eval_agent: {tool_call_id}")
         return await handle_web_evaluation(
-            {"url": url, "task": task, "tool_call_id": tool_call_id},
+            {"url": url, "task": task, "headless": headless, "tool_call_id": tool_call_id},
             ctx,
             api_key
         )

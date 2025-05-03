@@ -75,6 +75,7 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     url = arguments["url"]
     task = arguments["task"]
     tool_call_id = arguments.get("tool_call_id", str(uuid.uuid4()))
+    headless = arguments.get("headless", True)
     
     if not url or not isinstance(url, str):
         return [TextContent(
@@ -109,8 +110,9 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
         # run_browser_task now only returns the final result string
         agent_final_result = await run_browser_task(
             evaluation_task,
-            "claude-3-7-sonnet-latest", # This model name might need update based on browser_utils
-            ctx,
+            headless=headless, # Pass the headless parameter
+            model="claude-3-7-sonnet-latest", # This model name might need update based on browser_utils
+            ctx=ctx,
             tool_call_id=tool_call_id,
             api_key=api_key
         )

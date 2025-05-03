@@ -310,6 +310,8 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
     """
     global active_cdp_session, active_screencast_running
     
+    send_log(f"handle_browser_input called with event_type: {event_type}", "🔍", log_type='status')
+    
     # Check if we have an active CDP session
     if not active_cdp_session:
         send_log(f"Input error: No active CDP session", "❌", log_type='status')
@@ -342,8 +344,10 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
                 "clickCount": click_count
             }
             
+            send_log(f"Dispatching mousePressed at ({x},{y})", "➡️", log_type='status')
             try:
                 await active_cdp_session.send("Input.dispatchMouseEvent", mouse_pressed_params)
+                send_log(f"mousePressed dispatched successfully", "✅", log_type='status')
             except Exception as press_error:
                 import traceback
                 send_log(f"Input error: Failed to send mousePressed: {press_error}", "❌", log_type='status')
@@ -362,8 +366,10 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
                 "clickCount": click_count
             }
             
+            send_log(f"Dispatching mouseReleased at ({x},{y})", "➡️", log_type='status')
             try:
                 await active_cdp_session.send("Input.dispatchMouseEvent", mouse_released_params)
+                send_log(f"mouseReleased dispatched successfully", "✅", log_type='status')
             except Exception as release_error:
                 import traceback
                 send_log(f"Input error: Failed to send mouseReleased: {release_error}", "❌", log_type='status')
@@ -390,6 +396,11 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
             # Skip for special keys like Enter, Escape, Arrow keys, etc.
             if len(key) == 1:  # Simple check for printable characters (single character keys)
                 key_params["text"] = key
+            
+            # For Backspace, also send the 'deleteBackward' editing command
+            if key == 'Backspace':
+                 send_log("Adding 'deleteBackward' command for Backspace keydown", "🔧", log_type='status')
+                 key_params["commands"] = ["deleteBackward"]
             
             try:
                 await active_cdp_session.send("Input.dispatchKeyEvent", key_params)
@@ -485,7 +496,7 @@ def set_screencast_running(running: bool = True) -> None:
     global active_screencast_running
     active_screencast_running = running
 
-async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None) -> str:
+async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: Context = None, tool_call_id: str = None, api_key: str = None, headless: bool = True) -> str:
     global browser_task_loop
     # Store the current asyncio loop for input handling
     browser_task_loop = asyncio.get_running_loop()
@@ -535,17 +546,17 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
         
         # --- Initialize Playwright Directly ---
         playwright = await async_playwright().start()
-        # Launch with CDP enabled - use headless=False as recommended
+        # Launch with CDP enabled
         playwright_browser = await playwright.chromium.launch(
-            headless=True,  # Use non-headless mode with remote debugging
+            headless=headless,  # Use the provided headless parameter
             args=["--remote-debugging-port=9222"]
         )
         
         # Get the CDP URL from the browser
-        send_log("Playwright initialized for task with CDP.", "🎭", log_type='status') # Type: status
+        send_log(f"Playwright initialized for task with CDP (headless={headless}).", "🎭", log_type='status') # Type: status
 
         # --- Create browser-use Browser ---
-        browser_config = BrowserConfig(disable_security=True, headless=False, cdp_url="http://127.0.0.1:9222")
+        browser_config = BrowserConfig(disable_security=True, headless=headless, cdp_url="http://127.0.0.1:9222")
         agent_browser = Browser(config=browser_config)
         agent_browser.playwright = playwright
         agent_browser.playwright_browser = playwright_browser
