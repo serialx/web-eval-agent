@@ -9,7 +9,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, List, Any
 
 from mcp.server.fastmcp import Context
-from mcp.types import TextContent
+from mcp.types import TextContent, ImageContent # Added ImageContent import
 
 # Import the manager directly
 from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
@@ -51,11 +51,11 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
         api_key: The API key for authentication with the LLM service
         
     Returns:
-        list[TextContent]: The evaluation results, including console logs and network requests
+        list[List[Any]]: The evaluation results, including console logs, network requests, and screenshots
     """
     # Initialize log server immediately (if not already running)
     try:
-        # Start the log server right away
+        # stop_log_server() # Commented out stop_log_server
         start_log_server()
         # Give the server a moment to start
         await asyncio.sleep(1)
@@ -105,10 +105,10 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     send_log(f"📝 Generated evaluation prompt.", "📝")
     
     # Run the browser task
-    agent_final_result = None
+    agent_result_data = None # Changed to agent_result_data
     try:
-        # run_browser_task now only returns the final result string
-        agent_final_result = await run_browser_task(
+        # run_browser_task now returns a dictionary with result and screenshots # Updated comment
+        agent_result_data = await run_browser_task(
             evaluation_task,
             headless=headless, # Pass the headless parameter
             model="claude-3-7-sonnet-latest", # This model name might need update based on browser_utils
@@ -116,6 +116,13 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
             tool_call_id=tool_call_id,
             api_key=api_key
         )
+        
+        # Extract the final result string
+        agent_final_result = agent_result_data.get("result", "No result provided")
+        screenshots = agent_result_data.get("screenshots", []) # Added this line
+
+        # Log the number of screenshots captured
+        send_log(f"📸 Captured {len(screenshots)} screenshots during evaluation", "📸")
 
         # Optional: Send the final result from the agent to the dashboard as well
         send_log(f"✅ Agent final result: {agent_final_result}", "✅")
@@ -124,6 +131,7 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
         error_msg = f"Error during browser task execution: {browser_task_error}\n{traceback.format_exc()}"
         send_log(error_msg, "❌")
         agent_final_result = f"Error: {browser_task_error}" # Provide error as result
+        screenshots = [] # Ensure screenshots is defined even on error
 
     # Format the agent result in a more user-friendly way, including console and network errors
     formatted_result = format_agent_result(agent_final_result, url, task, console_log_storage, network_request_storage)
@@ -142,7 +150,7 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     # Including a reference to the dashboard for detailed logs
     confirmation_text = f"{formatted_result}\n\n👁️ See the 'Operative Control Center' dashboard for detailed live logs.\nWeb Evaluation completed!"
     send_log(f"Web evaluation task completed for {url}.", status_emoji) # Also send confirmation to dashboard
-    # stop_log_server()
+    # stop_log_server() # Commented out stop_log_server
     
     return [[TextContent(
         type="text",
