@@ -170,23 +170,15 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     send_log(f"Web evaluation task completed for {url}.", status_emoji) # Also send confirmation to dashboard
     # stop_log_server()
     
-    return [TextContent(
+    return [[TextContent(
         type="text",
         text=confirmation_text
-    )]
-    
-    # Add screenshots to the response if available
-    screenshots = agent_result_data.get("screenshots", [])
-    for screenshot_data in screenshots:
-        response.append(
-            ImageContent(
-                type="image",
-                data=screenshot_data["screenshot"],
-                mimeType="image/jpeg"
-            )
-        )
-    
-    return response
+    )] + [ImageContent(
+        type="image",
+        data=screenshot_data["screenshot"],
+        mimeType="image/jpeg"
+    ) for screenshot_data in screenshots]
+    ]
 
 def format_agent_result(result_str: str, url: str, task: str, console_logs=None, network_requests=None) -> str:
     """Format the agent result in a readable way with emojis.

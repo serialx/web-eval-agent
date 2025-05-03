@@ -56,13 +56,13 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
         url: Required. The localhost URL of the web application to evaluate, including the port number.
         task: Required. The specific UX/UI aspect to test (e.g., "test the checkout flow",
              "evaluate the navigation menu usability", "check form validation feedback")
-             If no task is provided, the tool will high level evaluate the web application
+             Be as detailed as possible in your task description. It could be anywhere from 2 sentences to 2 paragraphs.
         working_directory: Required. The root directory of the project
 
     Returns:
-        list[TextContent]: A detailed evaluation of the web application's UX/UI, including
+        list[list[TextContent, ImageContent]]: A detailed evaluation of the web application's UX/UI, including
                          observations, issues found, and recommendations for improvement
-                         Do not save this information to any file, but only return it to the agent
+                         and screenshots of the web application during the evaluation
     """
     is_valid = await validate_api_key(api_key)
 
