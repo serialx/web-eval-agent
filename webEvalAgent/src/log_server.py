@@ -40,7 +40,7 @@ connected_clients = set()
 @app.route('/')
 def index():
     """Serve the main HTML dashboard page."""
-    return render_template('index.html')
+    return render_template('static/index.html')
 
 @app.route('/static/<path:path>')
 def send_static(path):

@@ -6,6 +6,7 @@ import argparse
 import traceback
 import uuid
 from enum import Enum
+from webEvalAgent.src.utils import stop_log_server
 
 # Set the API key to a fake key to avoid error in backend
 os.environ["ANTHROPIC_API_KEY"] = 'not_a_real_key'
@@ -20,6 +21,8 @@ from webEvalAgent.src.browser_manager import PlaywrightBrowserManager
 # from webEvalAgent.src.browser_utils import cleanup_resources # Removed import
 from webEvalAgent.src.api_utils import validate_api_key
 from webEvalAgent.src.tool_handlers import handle_web_evaluation
+
+stop_log_server() # Stop the log server before starting the MCP server
 
 # Create the MCP server
 mcp = FastMCP("Operative")
@@ -44,7 +47,7 @@ else:
     print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
 
 @mcp.tool(name=BrowserTools.WEB_EVAL_AGENT)
-async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Context, show_browser: bool=False) -> list[TextContent]:
+async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Context) -> list[TextContent]:
     """Evaluate the user experience / interface of a web application.
 
     This tool allows the AI to assess the quality of user experience and interface design
@@ -58,15 +61,16 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
              "evaluate the navigation menu usability", "check form validation feedback")
              Be as detailed as possible in your task description. It could be anywhere from 2 sentences to 2 paragraphs.
         working_directory: Required. The root directory of the project
-        show_browser: Optional. Whether to show the browser window during evaluation. Defaults to False.
+        external_browser: Optional. Whether to show the browser window externally during evaluation. Defaults to False. 
 
     Returns:
         list[list[TextContent, ImageContent]]: A detailed evaluation of the web application's UX/UI, including
                          observations, issues found, and recommendations for improvement
                          and screenshots of the web application during the evaluation
     """
-    # Convert show_browser to headless parameter (inverse logic)
-    headless = not show_browser
+    external_browser = False
+    # Convert external_browser to headless parameter (inverse logic)
+    headless = not external_browser
     is_valid = await validate_api_key(api_key)
 
     if not is_valid:
