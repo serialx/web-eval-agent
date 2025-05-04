@@ -89,16 +89,22 @@ network_request_storage: deque = deque(maxlen=MAX_LOG_ENTRIES)
 screenshot_storage: List[Dict[str, Any]] = []
 
 # --- Log Handlers (Use deque's append and send_log with type) ---
-async def handle_console_message(message):
+# Async handler functions
+async def _handle_console_message(message):
     try:
         text = message.text
         log_entry = { "type": message.type, "text": text, "location": message.location, "timestamp": asyncio.get_event_loop().time() }
         console_log_storage.append(log_entry)
-        send_log(f"CONSOLE [{log_entry['type']}]: {log_entry['text']}", "🖥️", log_type='console')
+        
+        # Check if message has a failure attribute
+        if hasattr(message, 'failure') and message.failure:
+            send_log(f"CONSOLE ERROR [{log_entry['type']}]: {log_entry['text']} - {message.failure}", "❌", log_type='console')
+        else:
+            send_log(f"CONSOLE [{log_entry['type']}]: {log_entry['text']}", "🖥️", log_type='console')
     except Exception as e:
         send_log(f"Error handling console message: {e}", "❌", log_type='status')
 
-async def handle_request(request):
+async def _handle_request(request):
     try:
         if not should_log_network_request(request):
             return
@@ -126,7 +132,7 @@ async def handle_request(request):
         url = request.url if request else 'Unknown URL'
         send_log(f"Error handling request event for {url}: {e}", "❌", log_type='status')
 
-async def handle_response(response):
+async def _handle_response(response):
     req_id = id(response.request)
     url = response.url
     
@@ -165,6 +171,43 @@ async def handle_response(response):
             send_log(f"NET RESP* [{status}]: {url} (JSON, req not matched/updated)", "⬅️", log_type='network')
     except Exception as e:
         send_log(f"Error handling response event for {url}: {e}", "❌", log_type='status')
+
+async def _handle_page_error(error):
+    try:
+        send_log(f"PAGE ERROR: {error}", "🐛", log_type='console')
+    except Exception as e:
+        send_log(f"Error handling page error: {e}", "❌", log_type='status')
+
+async def _handle_web_error(error):
+    try:
+        send_log(f"JS ERROR: {error.error}: {error.page}", "🐛", log_type='console')
+    except Exception as e:
+        send_log(f"Error handling web error: {e}", "❌", log_type='status')
+
+async def _handle_request_failed(error):
+    try:
+        send_log(f"REQUEST FAILED: {error}", "🐛", log_type='console')
+    except Exception as e:
+        send_log(f"Error handling request failed: {e}", "❌", log_type='status')
+
+# Non-async wrapper functions for event listeners
+def handle_console_message(message):
+    asyncio.create_task(_handle_console_message(message))
+
+def handle_request(request):
+    asyncio.create_task(_handle_request(request))
+
+def handle_response(response):
+    asyncio.create_task(_handle_response(response))
+
+def handle_page_error(error):
+    asyncio.create_task(_handle_page_error(error))
+
+def handle_web_error(error):
+    asyncio.create_task(_handle_web_error(error))
+
+def handle_request_failed(error):
+    asyncio.create_task(_handle_request_failed(error))
 
 # Read the JavaScript overlay code from the file
 try:
@@ -220,8 +263,15 @@ async def setup_page_agent_controls(page: PlaywrightPage):
             if frame is page.main_frame:
                 send_log(f"Page navigated to: {page.url}", "🧭", log_type='status')
         
-        # Listen for framenavigated events
-        page.on("framenavigated", lambda frame: asyncio.create_task(handle_frame_navigation(frame)))
+        # Define non-async wrapper functions for event listeners
+        def on_frame_navigated(frame):
+            asyncio.create_task(handle_frame_navigation(frame))
+            
+        def on_load():
+            asyncio.create_task(handle_load())
+        
+        # Listen for framenavigated events using non-async wrapper
+        page.on("framenavigated", on_frame_navigated)
         send_log("Added navigation listener to page", "🔄", log_type='status')
         
         # Also listen for load events to re-inject the overlay
@@ -229,7 +279,7 @@ async def setup_page_agent_controls(page: PlaywrightPage):
             send_log(f"Page load event on: {page.url}", "🔄", log_type='status')
             await asyncio.sleep(0.5)  # Wait a bit for the page to stabilize
             
-        page.on("load", lambda: asyncio.create_task(handle_load()))
+        page.on("load", on_load)
         send_log("Added load event listener to page", "🔄", log_type='status')
         
     except Exception as e:
@@ -619,8 +669,12 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                 except Exception as frame_error:
                     import traceback
             
-            # Register the listener
-            cdp_session.on("Page.screencastFrame", handle_screencast_frame)
+            # Define non-async wrapper function for screencast frame event
+            def on_screencast_frame(params):
+                asyncio.create_task(handle_screencast_frame(params))
+                
+            # Register the listener using non-async wrapper
+            cdp_session.on("Page.screencastFrame", on_screencast_frame)
             
             # Start the screencast
             try:
@@ -670,16 +724,24 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             raw_playwright_context = await original_create_context(self, browser_pw)
 
             if raw_playwright_context:
-                raw_playwright_context.on("console", handle_console_message) # Handlers now send correct type
-                raw_playwright_context.on("request", handle_request)         # Handlers now send correct type
-                raw_playwright_context.on("response", handle_response)       # Handlers now send correct type
+                # Use the non-async wrapper functions for event listeners
+                raw_playwright_context.on("console", handle_console_message)
+                raw_playwright_context.on("request", handle_request)
+                raw_playwright_context.on("requestfailed", handle_request_failed)
+                raw_playwright_context.on("response", handle_response)
+                raw_playwright_context.on("weberror", handle_web_error)
+                raw_playwright_context.on("pageerror", handle_page_error)
                 
                 # Set up agent controls for existing pages
                 for page in raw_playwright_context.pages:
                     await setup_page_agent_controls(page)
                 
-                # Set up agent controls for new pages
-                raw_playwright_context.on("page", lambda page: asyncio.create_task(setup_page_agent_controls(page)))
+                # Define non-async wrapper function for page event
+                def on_page(page):
+                    asyncio.create_task(setup_page_agent_controls(page))
+                
+                # Set up agent controls for new pages using non-async wrapper
+                raw_playwright_context.on("page", on_page)
                 
                 send_log("Log listeners and agent controls attached.", "👂", log_type='status') # Type: status
             else:

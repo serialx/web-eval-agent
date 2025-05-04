@@ -112,6 +112,28 @@ class PlaywrightBrowserManager:
         self.network_requests = []
         send_log("Browser manager closed.", "🛑", log_type='status')
 
+    # Non-async wrapper functions for event listeners
+    def _on_console(self, message):
+        asyncio.create_task(self._handle_console_message(message))
+    
+    def _on_request(self, request):
+        asyncio.create_task(self._handle_request(request))
+    
+    def _on_response(self, response):
+        asyncio.create_task(self._handle_response(response))
+    
+    def _on_request_failed(self, message):
+        asyncio.create_task(self._handle_console_message(message))
+    
+    def _on_web_error(self, message):
+        asyncio.create_task(self._handle_console_message(message))
+    
+    def _on_page_error(self, message):
+        asyncio.create_task(self._handle_console_message(message))
+    
+    def _on_screencast_frame(self, params):
+        asyncio.create_task(self._handle_screencast_frame(params))
+    
     async def open_url(self, url: str) -> str:
         """Open a URL in the browser and start monitoring console and network.
         The browser will stay open for user interaction."""
@@ -145,13 +167,15 @@ class PlaywrightBrowserManager:
         # Create a new page
         self.page = await self.browser.new_page()
         
-        # Set up console log listener
-        self.page.on("console", lambda message: asyncio.create_task(self._handle_console_message(message)))
+        # Set up console log listener using non-async wrapper functions
+        self.page.on("console", self._on_console)
         
-        # Set up network request listener
-        self.page.on("request", lambda request: asyncio.create_task(self._handle_request(request)))
-        self.page.on("response", lambda response: asyncio.create_task(self._handle_response(response)))
-        
+        # Set up network request listener using non-async wrapper functions
+        self.page.on("request", self._on_request)
+        self.page.on("response", self._on_response)
+        self.page.on("requestfailed", self._on_request_failed)
+        self.page.on("weberror", self._on_web_error)
+        self.page.on("pageerror", self._on_page_error)
         # Navigate to the URL
         await self.page.goto(url, wait_until="networkidle")
         send_log(f"Navigated to: {url} (Headless Mode)", "🌍", log_type='agent')
@@ -159,8 +183,8 @@ class PlaywrightBrowserManager:
         # --- Start CDP Screencast ---
         try:
             self.cdp_session = await self.page.context.new_cdp_session(self.page)
-            # Listen for screencast frames
-            self.cdp_session.on("Page.screencastFrame", self._handle_screencast_frame)
+            # Listen for screencast frames using a non-async wrapper function
+            self.cdp_session.on("Page.screencastFrame", self._on_screencast_frame)
             # Start the screencast
             await self.cdp_session.send("Page.startScreencast", {
                 "format": "png",  # jpeg is generally smaller than png
