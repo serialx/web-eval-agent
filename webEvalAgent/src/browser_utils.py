@@ -174,19 +174,43 @@ async def _handle_response(response):
 
 async def _handle_page_error(error):
     try:
-        send_log(f"PAGE ERROR: {error}", "🐛", log_type='console')
+        error_text = f"PAGE ERROR: {error}"
+        send_log(error_text, "🐛", log_type='console')
+        # Add to console_log_storage with type 'error'
+        console_log_storage.append({
+            "type": "error",
+            "text": error_text,
+            "location": None,
+            "timestamp": asyncio.get_event_loop().time()
+        })
     except Exception as e:
         send_log(f"Error handling page error: {e}", "❌", log_type='status')
 
 async def _handle_web_error(error):
     try:
-        send_log(f"JS ERROR: {error.error}: {error.page}", "🐛", log_type='console')
+        error_text = f"JS ERROR: {error.error}: {error.page}"
+        send_log(error_text, "🐛", log_type='console')
+        # Add to console_log_storage with type 'error'
+        console_log_storage.append({
+            "type": "error",
+            "text": error_text,
+            "location": error.page.url if hasattr(error.page, 'url') else None,
+            "timestamp": asyncio.get_event_loop().time()
+        })
     except Exception as e:
         send_log(f"Error handling web error: {e}", "❌", log_type='status')
 
 async def _handle_request_failed(error):
     try:
-        send_log(f"REQUEST FAILED: {error}", "🐛", log_type='console')
+        error_text = f"REQUEST FAILED: {error}"
+        send_log(error_text, "🐛", log_type='console')
+        # Add to console_log_storage with type 'error'
+        console_log_storage.append({
+            "type": "error",
+            "text": error_text,
+            "location": None,
+            "timestamp": asyncio.get_event_loop().time()
+        })
     except Exception as e:
         send_log(f"Error handling request failed: {e}", "❌", log_type='status')
 
