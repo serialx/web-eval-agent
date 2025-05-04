@@ -287,15 +287,8 @@ async def setup_page_agent_controls(page: PlaywrightPage):
             if frame is page.main_frame:
                 send_log(f"Page navigated to: {page.url}", "🧭", log_type='status')
         
-        # Define non-async wrapper functions for event listeners
-        def on_frame_navigated(frame):
-            asyncio.create_task(handle_frame_navigation(frame))
-            
-        def on_load():
-            asyncio.create_task(handle_load())
-        
-        # Listen for framenavigated events using non-async wrapper
-        page.on("framenavigated", on_frame_navigated)
+        # Define async wrapper functions for event listeners
+        page.on("framenavigated", lambda frame: asyncio.create_task(handle_frame_navigation(frame)))
         send_log("Added navigation listener to page", "🔄", log_type='status')
         
         # Also listen for load events to re-inject the overlay
@@ -303,7 +296,7 @@ async def setup_page_agent_controls(page: PlaywrightPage):
             send_log(f"Page load event on: {page.url}", "🔄", log_type='status')
             await asyncio.sleep(0.5)  # Wait a bit for the page to stabilize
             
-        page.on("load", on_load)
+        page.on("load", lambda: asyncio.create_task(handle_load()))
         send_log("Added load event listener to page", "🔄", log_type='status')
         
     except Exception as e:
@@ -693,12 +686,8 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
                 except Exception as frame_error:
                     import traceback
             
-            # Define non-async wrapper function for screencast frame event
-            def on_screencast_frame(params):
-                asyncio.create_task(handle_screencast_frame(params))
-                
-            # Register the listener using non-async wrapper
-            cdp_session.on("Page.screencastFrame", on_screencast_frame)
+            # Define async wrapper function for screencast frame event
+            cdp_session.on("Page.screencastFrame", handle_screencast_frame)
             
             # Start the screencast
             try:

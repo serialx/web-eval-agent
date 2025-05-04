@@ -131,9 +131,6 @@ class PlaywrightBrowserManager:
     def _on_page_error(self, message):
         asyncio.create_task(self._handle_console_message(message))
     
-    def _on_screencast_frame(self, params):
-        asyncio.create_task(self._handle_screencast_frame(params))
-    
     async def open_url(self, url: str) -> str:
         """Open a URL in the browser and start monitoring console and network.
         The browser will stay open for user interaction."""
@@ -184,7 +181,7 @@ class PlaywrightBrowserManager:
         try:
             self.cdp_session = await self.page.context.new_cdp_session(self.page)
             # Listen for screencast frames using a non-async wrapper function
-            self.cdp_session.on("Page.screencastFrame", self._on_screencast_frame)
+            self.cdp_session.on("Page.screencastFrame", self._handle_screencast_frame)
             # Start the screencast
             await self.cdp_session.send("Page.startScreencast", {
                 "format": "png",  # jpeg is generally smaller than png
