@@ -12,7 +12,7 @@ from datetime import datetime
 # Import the browser manager to call its input handler
 # Use a try-except block for graceful handling if the module structure changes
 try:
-    from .browser_manager import PlaywrightBrowserManager
+    from src.browser_manager import PlaywrightBrowserManager
 except ImportError:
     PlaywrightBrowserManager = None
     logging.error("Could not import PlaywrightBrowserManager in log_server.py")
