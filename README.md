@@ -28,14 +28,17 @@
 curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm install.sh
 ```
 3. Visit your favorite IDE and restart to apply the changes
-4. Send a prompt in chat mode to call the web eval agent tool!
+4. Send a prompt in chat mode to call the web eval agent tool! e.g. 
+```bash
+Test my app on http://localhost:3000. Use web-eval-agent.
+```
 
 ## 🛠️ Manual Windows Installation (Cline) 
 ```bash
 # 1. Get your API key at operative.sh
 # 2. Install uv (curl -LsSf https://astral.sh/uv/install.sh | sh)
 # 3. uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git playwright install
-# 4. Unleash the agent in Cline with web_eval_agent (may have to restart Cline) 
+# 4. Unleash the agent in Cline with web_eval_agent (may have to restart Cline)
 ```
 ## 🔃 Updating 
 - `uv clean`
