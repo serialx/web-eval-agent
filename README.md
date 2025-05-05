@@ -19,8 +19,11 @@
 
 ## 🏁 Quick Start (macOS/Linux)
 
-1. Pre-requisites: brew: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`, npm: (`brew install npm`), jq: `brew install jq` 
-2. Run the installer after [getting an api key (free)](https://www.operative.sh) 
+1. Pre-requisites (typically not needed):
+ - brew: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
+ - npm: (`brew install npm`)
+ - jq: `brew install jq` 
+3. Run the installer after [getting an api key (free)](https://www.operative.sh) 
 ```bash
 # Feel welcome to inspect the installer script like so:
 # curl -LSf https://operative.sh/install.sh | less -N
@@ -33,19 +36,46 @@ curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm
 Test my app on http://localhost:3000. Use web-eval-agent.
 ```
 
-## 🛠️ Manual Windows Installation (Cline) 
+## 🛠️ Manual Installation
+1. Get your API key at operative.sh
+2. [Install uv](https://docs.astral.sh/uv/#highlights)
 ```bash
-# 1. Get your API key at operative.sh
-# 2. Install uv (curl -LsSf https://astral.sh/uv/install.sh | sh)
-# 3. uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git playwright install
-# 4. Unleash the agent in Cline with web_eval_agent (may have to restart Cline)
+curl -LsSf https://astral.sh/uv/install.sh | sh)
 ```
+4. Install playwright:
+```bash
+npm install -g chromium playwright && uvx --with playwright playwright install --with-deps
+```
+6. Add below JSON to your relevant code editor with api key 
+7. Restart your code editor
+   
 ## 🔃 Updating 
-- `uv clean`
+- `uv cache clean`
 - refresh MCP server 
 
+```json 
+    "web-eval-agent": {
+      "command": "uvx",
+      "args": [
+        "--refresh-package",
+        "webEvalAgent",
+        "--from",
+        "git+https://github.com/Operative-Sh/web-eval-agent.git",
+        "webEvalAgent"
+      ],
+      "env": {
+        "OPERATIVE_API_KEY": "<YOUR_KEY>"
+      }
+    }
+```
+
+
+
+
+
+
 ## 🚨 Issues 
-- Initial tool calls Playwright issues, fix pushed 4/14, `npm install -g playwright` playwright issues on tool call.
+- Updates aren't being received in code editors, update or reinstall for latest version: Run `uv cache clean` for latest 
 - Any issues feel free to open an Issue on this repo!
 
 ## Changelog 
