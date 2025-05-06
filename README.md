@@ -68,10 +68,7 @@ npm install -g chromium playwright && uvx --with playwright playwright install -
       }
     }
 ```
-
-
-
-
+## [Operative Discord Server](https://discord.gg/ryjCnf9myb)
 
 
 ## 🚨 Issues 
