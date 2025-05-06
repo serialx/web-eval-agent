@@ -77,6 +77,7 @@ npm install -g chromium playwright && uvx --with playwright playwright install -
 ## 🚨 Issues 
 - Updates aren't being received in code editors, update or reinstall for latest version: Run `uv cache clean` for latest 
 - Any issues feel free to open an Issue on this repo!
+- 5/5 - static apps without changes weren't screencasting, fixed! `uv clean` + restart to get fix
 
 ## Changelog 
 - 4/29 - Agent overlay update - pause/play/stop agent run in the browser
