@@ -57,6 +57,8 @@ class PlaywrightBrowserManager:
                     s.close()
                     start_log_server()
                     await asyncio.sleep(1)
+                    # Use the enhanced open_log_dashboard which will refresh existing tabs
+                    # instead of opening new ones
                     open_log_dashboard()
                     PlaywrightBrowserManager._log_server_started = True
             except Exception as e:

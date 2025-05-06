@@ -247,6 +247,9 @@
 
     <!-- Socket.IO Client Script -->
     <script>
+        // Tab ID for this dashboard instance
+        const tabId = Date.now().toString() + Math.random().toString(36).substring(2, 8);
+        
         // --- Theme Handling --- V
         const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
         const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
@@ -532,6 +535,31 @@
                     appendLog(agentLogEl, stateMessage);
                 }
             }
+        });
+
+        // Register this tab with server and handle refresh requests
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tell server this tab is active
+            socket.emit('register_dashboard_tab', { tabId: tabId });
+            
+            // Listen for refresh requests
+            socket.on('refresh_dashboard', function(data) {
+                console.log('Received refresh request from server');
+                // Reload the page
+                window.location.reload();
+            });
+            
+            // Set ping interval to keep tab registration active
+            setInterval(function() {
+                socket.emit('dashboard_ping', { tabId: tabId });
+            }, 5000); // Ping every 5 seconds
+            
+            // Handle page visibility changes
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    socket.emit('dashboard_visible', { tabId: tabId });
+                }
+            });
         });
 
         console.log('Dashboard script initialised.');

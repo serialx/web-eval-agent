@@ -9,6 +9,10 @@ import logging
 import os
 from datetime import datetime
 
+# Track active dashboard tabs
+active_dashboard_tabs = {}
+last_tab_activity = {}
+
 # --- Async mode selection ---
 _async_mode = 'threading'
 
@@ -40,6 +44,31 @@ def send_static(path):
     static_folder = os.path.join(os.path.dirname(__file__), '../templates/static')
     return send_from_directory(static_folder, path)
 
+# Dashboard tab tracking handlers
+@socketio.on('register_dashboard_tab')
+def handle_register_tab(data):
+    """Register an active dashboard tab."""
+    tab_id = data.get('tabId')
+    if tab_id:
+        active_dashboard_tabs[tab_id] = request.sid
+        last_tab_activity[tab_id] = datetime.now()
+        send_log(f"Dashboard tab registered: {tab_id[:8]}...", "📋", log_type='status')
+
+@socketio.on('dashboard_ping')
+def handle_dashboard_ping(data):
+    """Update last activity time for a dashboard tab."""
+    tab_id = data.get('tabId')
+    if tab_id and tab_id in active_dashboard_tabs:
+        last_tab_activity[tab_id] = datetime.now()
+
+@socketio.on('dashboard_visible')
+def handle_dashboard_visible(data):
+    """Mark a dashboard tab as currently visible."""
+    tab_id = data.get('tabId')
+    if tab_id and tab_id in active_dashboard_tabs:
+        # This tab is now the most recently active
+        last_tab_activity[tab_id] = datetime.now()
+
 @socketio.on('connect')
 def handle_connect():
     # Add client to connected_clients set
@@ -53,6 +82,16 @@ def handle_disconnect():
     # Remove client from connected_clients set
     if request.sid in connected_clients:
         connected_clients.remove(request.sid)
+    
+    # Remove any dashboard tabs associated with this session
+    tabs_to_remove = []
+    for tab_id, tab_sid in active_dashboard_tabs.items():
+        if tab_sid == request.sid:
+            tabs_to_remove.append(tab_id)
+    
+    for tab_id in tabs_to_remove:
+        active_dashboard_tabs.pop(tab_id, None)
+        last_tab_activity.pop(tab_id, None)
     
     # Send status message to dashboard
     # Use try-except as send_log might fail if server isn't fully ready/shutting down
@@ -229,13 +268,44 @@ def start_log_server(host='127.0.0.1', port=5009):
     # Send initial status message
     send_log("Log server thread started.", "🚀", log_type='status')
 
+def has_active_dashboard():
+    """Check if there are any active dashboard tabs."""
+    # Clean up stale tabs (inactive for more than 30 seconds)
+    now = datetime.now()
+    stale_tabs = []
+    for tab_id, last_activity in last_tab_activity.items():
+        if (now - last_activity).total_seconds() > 30:
+            stale_tabs.append(tab_id)
+    
+    for tab_id in stale_tabs:
+        active_dashboard_tabs.pop(tab_id, None)
+        last_tab_activity.pop(tab_id, None)
+    
+    return len(active_dashboard_tabs) > 0
+
+def refresh_dashboard():
+    """Send refresh signal to all connected dashboard tabs."""
+    if active_dashboard_tabs:
+        socketio.emit('refresh_dashboard', {})
+        return True
+    return False
+
 def open_log_dashboard(url='http://127.0.0.1:5009'):
-    """Opens the specified URL in a new tab in the default web browser."""
+    """Opens or refreshes the dashboard in the browser."""
+    # Try to refresh existing tabs first
+    if refresh_dashboard():
+        try:
+            send_log("Refreshed existing dashboard tab.", "🔄", log_type='status')
+        except Exception:
+            pass
+        return
+    
+    # No active tabs, open a new one
     try:
         # Use open_new_tab for better control
         webbrowser.open_new_tab(url)
         try:
-            send_log(f"Opened dashboard in browser at {url}.", "🌐", log_type='status')
+            send_log(f"Opened new dashboard in browser at {url}.", "🌐", log_type='status')
         except Exception:
             pass
     except Exception as e:
