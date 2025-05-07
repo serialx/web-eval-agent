@@ -14,6 +14,10 @@ import sys
 active_dashboard_tabs = {}
 last_tab_activity = {}
 
+# Store current URL and task information
+current_url = ""
+current_task = ""
+
 # --- Async mode selection ---
 _async_mode = 'threading'
 
@@ -44,6 +48,11 @@ def send_static(path):
     """Serve static files (like CSS, JS if added later)."""
     static_folder = os.path.join(os.path.dirname(__file__), '../templates/static')
     return send_from_directory(static_folder, path)
+
+@app.route('/get_url_task')
+def get_url_task():
+    """Return the current URL and task as JSON."""
+    return {'url': current_url, 'task': current_task}
 
 # Dashboard tab tracking handlers
 @socketio.on('register_dashboard_tab')
@@ -100,6 +109,12 @@ def handle_disconnect():
         send_log(f"Disconnected from log server at {datetime.now().strftime('%H:%M:%S')}", "❌", log_type='status')
     except Exception:
         pass
+
+def set_url_and_task(url: str, task: str):
+    """Sets the current URL and task and broadcasts it to all connected clients."""
+    global current_url, current_task
+    current_url = url
+    current_task = task
 
 def send_log(message: str, emoji: str = "➡️", log_type: str = 'agent'):
     """Sends a log message with an emoji prefix and type to all connected clients."""
@@ -321,12 +336,12 @@ def open_log_dashboard(url='http://127.0.0.1:5009'):
             pass
 
 # Example usage (for testing this module directly)
-def main():
-    return
-    start_log_server()
+if __name__ == "__main__":
+    start_log_server(port=5009)  # Use a different port
     import time
     time.sleep(2)
-    open_log_dashboard()
+    open_log_dashboard(url='http://127.0.0.1:5009')
+    set_url_and_task("https://www.example.com", "Test the URL and task display")
     # Use the new log_type argument
     send_log("Server started and dashboard opened.", "✅", log_type='status')
     time.sleep(1)

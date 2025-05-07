@@ -18,7 +18,7 @@ from webEvalAgent.src.browser_utils import run_browser_task, console_log_storage
 # Import your prompt function
 from webEvalAgent.src.prompts import get_web_evaluation_prompt
 # Import log server functions directly
-from .log_server import send_log, start_log_server, open_log_dashboard
+from .log_server import send_log, start_log_server, open_log_dashboard, set_url_and_task
 # For sleep
 import asyncio
 import time  # Ensure time is imported at the top level
@@ -91,6 +91,9 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     # Send initial status to dashboard
     send_log(f"🚀 Received web evaluation task: {task}", "🚀")
     send_log(f"🔗 Target URL: {url}", "🔗")
+    
+    # Update the URL and task in the dashboard
+    set_url_and_task(url, task)
 
     # Get the singleton browser manager and initialize it
     browser_manager = get_browser_manager()
