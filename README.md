@@ -70,6 +70,20 @@ npm install -g chromium playwright && uvx --with playwright playwright install -
 ```
 ## [Operative Discord Server](https://discord.gg/ryjCnf9myb)
 
+## Windows Installation (Cline/Cursor/Windsurf) 
+
+## 🛠️ Manual Installation
+1. Get your API key at operative.sh
+2. [Install uv](https://docs.astral.sh/uv/#highlights)
+curl -LsSf https://astral.sh/uv/install.sh | sh)
+```
+4. Install playwright:
+```bash
+npm install -g chromium playwright && uvx --with playwright playwright install --with-deps
+```
+6. Add below JSON to your relevant code editor with api key 
+7. Restart your code editor
+
 
 ## 🚨 Issues 
 - Updates aren't being received in code editors, update or reinstall for latest version: Run `uv cache clean` for latest 
