@@ -553,7 +553,6 @@
 
         // Fetch URL and task information from the server
         function fetchUrlAndTask() {
-            console.log("Fetching URL and task data...");
             fetch('/get_url_task')
                 .then(response => {
                     if (!response.ok) {
@@ -562,18 +561,15 @@
                     return response.json();
                 })
                 .then(data => {
-                    console.log("Fetched URL/task data:", data);
                     
                     // Update the URL display
                     if (urlDisplayEl && data.url) {
                         urlDisplayEl.textContent = data.url || '';
-                        console.log("Updated URL display to:", data.url);
                     }
                     
                     // Update the task display
                     if (taskDisplayEl && data.task) {
                         taskDisplayEl.textContent = data.task || '';
-                        console.log("Updated task display to:", data.task);
                     }
                 })
                 .catch(error => {
