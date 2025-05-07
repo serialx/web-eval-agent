@@ -61,9 +61,8 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
         await asyncio.sleep(1)
         # Open the dashboard in a new tab
         open_log_dashboard()
-        print("Log dashboard initialized and opened")
     except Exception as log_server_error:
-        print(f"Warning: Could not start log dashboard: {log_server_error}")
+        pass
     
     # Validate required arguments
     if "url" not in arguments or "task" not in arguments:

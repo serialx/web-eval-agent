@@ -81,7 +81,6 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
     try:
         # Generate a new tool_call_id for this specific tool call
         tool_call_id = str(uuid.uuid4())
-        print(f"Generated new tool_call_id for web_eval_agent: {tool_call_id}")
         return await handle_web_evaluation(
             {"url": url, "task": task, "headless": headless, "tool_call_id": tool_call_id},
             ctx,
