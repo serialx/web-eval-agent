@@ -8,6 +8,7 @@ from flask_socketio import SocketIO
 import logging
 import os
 from datetime import datetime
+import sys
 
 # Track active dashboard tabs
 active_dashboard_tabs = {}
@@ -242,6 +243,8 @@ def start_log_server(host='127.0.0.1', port=5009):
     def run_server():
         # Use eventlet or gevent for production? For local dev, default Flask dev server is fine.
         # Setting log_output=False to reduce console noise from SocketIO itself
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
         socketio.run(app, host=host, port=port, log_output=False, use_reloader=False, allow_unsafe_werkzeug=True)
 
     # Check if templates directory exists
@@ -315,8 +318,8 @@ def open_log_dashboard(url='http://127.0.0.1:5009'):
             pass
 
 # Example usage (for testing this module directly)
-if __name__ == '__main__':
-    pass
+def main():
+    return
     start_log_server()
     import time
     time.sleep(2)
