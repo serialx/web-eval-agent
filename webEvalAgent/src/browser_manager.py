@@ -373,7 +373,8 @@ class PlaywrightBrowserManager:
             send_log(f"Input error: Screencast not running", "❌", log_type='status')
             return
 
-        send_log(f"Processing input: {event_type}", "🔄", log_type='status')
+        if event_type != 'scroll':
+            send_log(f"Processing input: {event_type}", "🔄", log_type='status')
 
         try:
             if event_type == 'click':

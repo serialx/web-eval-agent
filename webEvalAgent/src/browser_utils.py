@@ -381,7 +381,8 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
     """
     global active_cdp_session, active_screencast_running
     
-    send_log(f"handle_browser_input called with event_type: {event_type}", "🔍", log_type='status')
+    if event_type != 'scroll':
+        send_log(f"handle_browser_input called with event_type: {event_type}", "🔍", log_type='status')
     
     # Check if we have an active CDP session
     if not active_cdp_session:
@@ -393,7 +394,8 @@ async def handle_browser_input(event_type: str, details: Dict) -> None:
         send_log(f"Input error: Screencast not running", "❌", log_type='status')
         return
 
-    send_log(f"Processing input: {event_type}", "🔄", log_type='status')
+    if event_type != 'scroll':
+        send_log(f"Processing input: {event_type}", "🔄", log_type='status')
 
     try:
         if event_type == 'click':
