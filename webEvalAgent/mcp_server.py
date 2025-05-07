@@ -47,7 +47,7 @@ else:
     print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
 
 @mcp.tool(name=BrowserTools.WEB_EVAL_AGENT)
-async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Context) -> list[TextContent]:
+async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Context, external_browser: bool = False) -> list[TextContent]:
     """Evaluate the user experience / interface of a web application.
 
     This tool allows the AI to assess the quality of user experience and interface design
@@ -61,14 +61,13 @@ async def web_eval_agent(url: str, task: str, working_directory: str, ctx: Conte
              "evaluate the navigation menu usability", "check form validation feedback")
              Be as detailed as possible in your task description. It could be anywhere from 2 sentences to 2 paragraphs.
         working_directory: Required. The root directory of the project
-        external_browser: Optional. Whether to show the browser window externally during evaluation. Defaults to False. 
+        external_browser: Optional. Whether to show the browser window externally during evaluation. Defaults to False (shown in operative control center). 
 
     Returns:
         list[list[TextContent, ImageContent]]: A detailed evaluation of the web application's UX/UI, including
                          observations, issues found, and recommendations for improvement
                          and screenshots of the web application during the evaluation
     """
-    external_browser = True
     # Convert external_browser to headless parameter (inverse logic)
     headless = not external_browser
     is_valid = await validate_api_key(api_key)
