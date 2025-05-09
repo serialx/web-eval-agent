@@ -60,7 +60,7 @@ else:
     print("Error: No API key provided. Please set the OPERATIVE_API_KEY environment variable.")
 
 @mcp.tool(name=BrowserTools.WEB_EVAL_AGENT)
-async def web_eval_agent(url: str, task: str, ctx: Context, external_browser: bool = False) -> list[TextContent]:
+async def web_eval_agent(url: str, task: str, ctx: Context, headless_browser: bool = False) -> list[TextContent]:
     """Evaluate the user experience / interface of a web application.
 
     This tool allows the AI to assess the quality of user experience and interface design
@@ -83,7 +83,6 @@ async def web_eval_agent(url: str, task: str, ctx: Context, external_browser: bo
                          observations, issues found, and recommendations for improvement
                          and screenshots of the web application during the evaluation
     """
-    # Convert external_browser to headless parameter (inverse logic)
     headless = headless_browser
     is_valid = await validate_api_key(api_key)
 
