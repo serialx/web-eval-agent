@@ -759,7 +759,8 @@ async def run_browser_task(task: str, model: str = "gemini-2.0-flash-001", ctx: 
             
             # Start the screenshot capture task
             active_screencast_running = True
-            screenshot_task = asyncio.create_task(capture_screenshots(first_page))
+            if headless:
+                screenshot_task = asyncio.create_task(capture_screenshots(first_page))
             
         except Exception as e:
             send_log(f"Failed to start CDP screencast: {e}", "❌", log_type='status')
