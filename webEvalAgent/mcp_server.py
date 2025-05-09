@@ -75,7 +75,8 @@ async def web_eval_agent(url: str, task: str, ctx: Context, external_browser: bo
         task: Required. The specific UX/UI aspect to test (e.g., "test the checkout flow",
              "evaluate the navigation menu usability", "check form validation feedback")
              Be as detailed as possible in your task description. It could be anywhere from 2 sentences to 2 paragraphs.
-        external_browser: Optional. Whether to show the browser window externally during evaluation. Defaults to False (shown in operative control center). 
+        headless_browser: Optional. Whether to hide the browser window popup during evaluation.
+        If headless_browser is True, only the operative control center browser will show, and no popup browser will be shown.
 
     Returns:
         list[list[TextContent, ImageContent]]: A detailed evaluation of the web application's UX/UI, including
@@ -83,7 +84,7 @@ async def web_eval_agent(url: str, task: str, ctx: Context, external_browser: bo
                          and screenshots of the web application during the evaluation
     """
     # Convert external_browser to headless parameter (inverse logic)
-    headless = not external_browser
+    headless = headless_browser
     is_valid = await validate_api_key(api_key)
 
     if not is_valid:
