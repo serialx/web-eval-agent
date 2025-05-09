@@ -110,6 +110,10 @@ async def web_eval_agent(url: str, task: str, ctx: Context, headless_browser: bo
 async def setup_browser_state(url: str = None, ctx: Context = None) -> list[TextContent]:
     """Sets up and saves browser state for future use.
 
+    This tool should only be called in two scenarios:
+    1. The user explicitly requests to set up browser state/authentication
+    2. The web_eval_agent tool failed due to missing login credentials
+
     Launches a non-headless browser for user interaction, allows login/authentication,
     and saves the browser state (cookies, local storage, etc.) to a local file.
 
