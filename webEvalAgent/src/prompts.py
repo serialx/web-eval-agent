@@ -17,9 +17,11 @@ Evaluate the UI / UX of the website. If you encounter any errors during your eva
 (e.g., connection issues, page not loading, JavaScript errors), immediately stop the evaluation
 and report back the specific error encountered.
 
-If you encounter a login page and no login credentials are available, DO NOT attempt to login.
-Instead, stop the evaluation and report that authentication is required. Suggest that the user
-run the setup_browser_state tool again to properly authenticate and save the login state.
+If you encounter a login page, first try clicking the login button as there may be saved credentials.
+If you are prompted to enter a username/password and no credentials were provided in the task,
+DO NOT make up or guess credentials. Instead, stop the evaluation and report that specific login
+credentials are required. Suggest that the user run the setup_browser_state tool to authenticate
+and save the login state before retrying.
 
 If there are no errors and you can proceed with the evaluation, check for any problems with the UX
 including not showing the correct content, or not being able to complete the task.
