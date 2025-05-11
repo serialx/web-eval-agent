@@ -17,6 +17,29 @@
 - 🚨 **Collect console errors** - captures logs & errors
 - 🤖 **Autonomous debugging** - the Cursor agent calls the web QA agent mcp server to test if the code it wrote works as epected end-to-end.
 
+## 🧰 MCP Tool Reference
+
+| Tool | Purpose |
+|------|---------|
+| `web_eval_agent` | 🤖 Automated UX evaluator that drives the browser, captures screenshots, console & network logs, and returns a rich UX report. |
+| `setup_browser_state` | 🔒 Opens an interactive (non-headless) browser so you can sign in once; the saved cookies/local-storage are reused by subsequent `web_eval_agent` runs. |
+
+**Key arguments**
+
+* `web_eval_agent`
+  * `url` **(required)** – address of the running app (e.g. `http://localhost:3000`)
+  * `task` **(required)** – natural-language description of what to test ("run through the signup flow and note any UX issues")
+  * `headless_browser` *(optional, default `false`)* – set to `true` to hide the browser window
+
+* `setup_browser_state`
+  * `url` *(optional)* – page to open first (handy to land directly on a login screen)
+
+You can trigger these tools straight from your IDE chat, for example:
+
+```bash
+Evaluate my app at http://localhost:3000 – run web_eval_agent with the task "Try the full signup flow and report UX issues".
+```
+
 ## 🏁 Quick Start (macOS/Linux)
 
 1. Pre-requisites (typically not needed):
@@ -113,14 +136,14 @@ We're refining this, please open an issue if you have any issues!
 
 🔍 Agent Steps
   📍 1. Navigate → http://localhost:5173
-  📍 2. Click     “Login”        (button index 2)
-  📍 3. Click     “API Keys”     (button index 4)
-  📍 4. Click     “Create Key”   (button index 9)
-  📍 5. Type      “Test API Key” (input index 2)
-  📍 6. Click     “Done”         (button index 3)
-  📍 7. Click     “Delete”       (button index 10)
-  📍 8. Click     “Delete”       (confirm index 3)
-  🏁 Flow tested successfully – UX felt smooth and intuitive.
+  📍 2. Click     "Login"        (button index 2)
+  📍 3. Click     "API Keys"     (button index 4)
+  📍 4. Click     "Create Key"   (button index 9)
+  📍 5. Type      "Test API Key" (input index 2)
+  📍 6. Click     "Done"         (button index 3)
+  📍 7. Click     "Delete"       (button index 10)
+  📍 8. Click     "Delete"       (confirm index 3)
+🏁 Flow tested successfully – UX felt smooth and intuitive.
 
 🖥️ Console Logs (10)
   1. [debug] [vite] connecting…
@@ -141,7 +164,7 @@ We're refining this, please open an issue if you have any issues!
      …
   01:17:45.038 🤖 🏁 Flow finished – deletion verified
   01:17:47.038 🤖 📋 Conclusion repeated above
-👁️  See the “Operative Control Center” dashboard for live logs.
+👁️  See the "Operative Control Center" dashboard for live logs.
 ```
 
 ## Star History
