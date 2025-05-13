@@ -1,1 +1,1 @@
-# test pre-commit
+def foo( ): print( 1 )
