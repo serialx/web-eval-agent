@@ -25,4 +25,4 @@ jobs:
 
       - name: Run ruff
         run: |
-          ruff check --fix . 
+          ruff check . 
