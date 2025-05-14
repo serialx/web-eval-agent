@@ -218,7 +218,6 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
         return f"{formatted}❌ {result_str}"
     
     # Flag to track if the task was successful
-    task_succeeded = True
     
     # List to collect all agent steps with timestamps for the timeline
     agent_steps_timeline = []
@@ -278,8 +277,7 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
             for action in action_results:
                 if "is_done=True" in action:
                     if "success=False" in action:
-                        task_succeeded = False
-                    break
+                        continue
             
             # Format steps with emojis
             formatted += "🔍 Agent Steps:\n"
@@ -358,7 +356,6 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
                                 "text": error_content,
                                 "timestamp": step_timestamp
                             })
-                            task_succeeded = False
                             continue
                     
                     # Check if this is a final message/conclusion step
@@ -419,8 +416,8 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
                     conclusion = text_part.strip("' \"")
                 
                 # Also check for success field in the done action
-                if "'success': False" in done_match or "\"success\": False" in done_match:
-                    task_succeeded = False
+                if "'success': False" in done_match or '"success": False' in done_match:
+                    pass
         
         # If we still don't have a conclusion, try the original method as fallback
         if not conclusion and "is_done=True" in result_str:
@@ -748,13 +745,19 @@ async def handle_setup_browser_state(arguments: Dict[str, Any], ctx: Context, ap
     finally:
         # Close resources in reverse order
         if page:
-            try: await page.close()
-            except: pass
+            try:
+                await page.close()
+            except Exception:
+                pass
         if context:
-            try: await context.close()
-            except: pass
+            try:
+                await context.close()
+            except Exception:
+                pass
         if playwright:
-            try: await playwright.stop()
-            except: pass
+            try:
+                await playwright.stop()
+            except Exception:
+                pass
             
         send_log("Browser session completed", "🏁")
