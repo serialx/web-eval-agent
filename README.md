@@ -64,16 +64,27 @@ Test my app on http://localhost:3000. Use web-eval-agent.
 2. [Install uv](https://docs.astral.sh/uv/#highlights)
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
+3. Source environment variables after installing UV
+
+Mac
+```
+source ~/.zshrc
+```
+
+Linux 
+```
+source ~/.bashrc 
+```
 4. Install playwright:
 
 ```bash
 npm install -g chromium playwright && uvx --with playwright playwright install --with-deps
 ```
-6. Add below JSON to your relevant code editor with api key 
-7. Restart your code editor
+5. Add below JSON to your relevant code editor with api key 
+6. Restart your code editor
    
 ## 🔃 Updating 
 - `uv cache clean`
