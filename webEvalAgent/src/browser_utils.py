@@ -23,10 +23,21 @@ from playwright.async_api import (
 # Local imports (assuming browser_manager is potentially still used for singleton logic elsewhere, or can be removed if fully replaced)
 # from browser_manager import PlaywrightBrowserManager # Commented out if not needed
 
-# Browser-use imports
-from browser_use.agent.service import Agent
-from browser_use.browser.browser import Browser, BrowserConfig
-from browser_use.browser.context import BrowserContext  # Import BrowserContext
+# Browser-use imports - suppress their logging output
+import sys
+_stdout = sys.stdout
+_stderr = sys.stderr
+try:
+    sys.stdout = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, 'w')
+    from browser_use.agent.service import Agent
+    from browser_use.browser.browser import Browser, BrowserConfig
+    from browser_use.browser.context import BrowserContext  # Import BrowserContext
+finally:
+    sys.stdout.close()
+    sys.stderr.close() 
+    sys.stdout = _stdout
+    sys.stderr = _stderr
 
 # Langchain/MCP imports
 from langchain_anthropic import ChatAnthropic
@@ -737,7 +748,7 @@ def _get_persisted_state() -> Optional[str]:
 
 
 async def run_browser_task(
-    task: str, tool_call_id: str = None, api_key: str = None, headless: bool = True
+    task: str, tool_call_id: str = None, headless: bool = True
 ) -> Dict[str, Any]:
     global browser_task_loop, screenshot_task
     # Store the current asyncio loop for input handling
@@ -748,7 +759,6 @@ async def run_browser_task(
     Args:
         task: The task to run.
         tool_call_id: The tool call ID for API headers.
-        api_key: The API key for authentication.
 
     Returns:
         str: Agent's final result (stringified).
@@ -1094,15 +1104,8 @@ async def run_browser_task(
             )  # Type: status
 
         # --- LLM Setup ---
-        from .env_utils import get_backend_url
-
         llm = ChatAnthropic(
             model="claude-3-5-sonnet-20240620",
-            base_url=get_backend_url("v1beta/models/claude-3-5-sonnet-20240620"),
-            extra_headers={
-                "x-operative-api-key": api_key,
-                "x-operative-tool-call-id": tool_call_id,
-            },
         )
         send_log(
             f"LLM ({llm.model}) configured.", "🤖", log_type="status"

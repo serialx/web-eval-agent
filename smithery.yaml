@@ -5,12 +5,7 @@ startCommand:
   configSchema:
     # JSON Schema defining the configuration options for the MCP.
     type: object
-    required:
-      - operativeApiKey
-    properties:
-      operativeApiKey:
-        type: string
-        description: OperativeAI API key for validating access to the service.
+    properties: {}
   commandFunction:
     # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
     |-
@@ -18,9 +13,6 @@ startCommand:
       command: 'python',
       args: ['mcp_server.py'],
       env: {
-        OPERATIVE_API_KEY: config.operativeApiKey,
-        // You can add more environment variables here if necessary
+        // Uses standard ANTHROPIC_API_KEY from environment
       }
     })
-  exampleConfig:
-    operativeApiKey: test_api_key_123

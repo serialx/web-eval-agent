@@ -40,7 +40,7 @@ def get_browser_manager() -> PlaywrightBrowserManager:
     """
     return PlaywrightBrowserManager.get_instance()
 
-async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key: str) -> list[TextContent]:
+async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context) -> list[TextContent]:
     """Handle web_eval_agent tool calls
     
     This function evaluates the user experience of a web application by using
@@ -49,7 +49,6 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
     Args:
         arguments: The tool arguments containing 'url' and 'task'
         ctx: The MCP context for reporting progress
-        api_key: The API key for authentication with the LLM service
         
     Returns:
         list[List[Any]]: The evaluation results, including console logs, network requests, and screenshots
@@ -122,8 +121,7 @@ async def handle_web_evaluation(arguments: Dict[str, Any], ctx: Context, api_key
         agent_result_data = await run_browser_task(
             evaluation_task,
             headless=headless, # Pass the headless parameter
-            tool_call_id=tool_call_id,
-            api_key=api_key
+            tool_call_id=tool_call_id
         )
         
         # Extract the final result string
@@ -606,7 +604,7 @@ def format_agent_result(result_str: str, url: str, task: str, console_logs=None,
     
     return formatted
 
-async def handle_setup_browser_state(arguments: Dict[str, Any], ctx: Context, api_key: str) -> list[TextContent]:
+async def handle_setup_browser_state(arguments: Dict[str, Any], ctx: Context) -> list[TextContent]:
     """Handle setup_browser_state tool calls
     
     This function launches a non-headless browser for user interaction, allows login/authentication,
@@ -615,7 +613,6 @@ async def handle_setup_browser_state(arguments: Dict[str, Any], ctx: Context, ap
     Args:
         arguments: The tool arguments, may contain 'url' to navigate to
         ctx: The MCP context for reporting progress
-        api_key: The API key for authentication (not used directly here)
         
     Returns:
         list[TextContent]: Confirmation of state saving or error messages

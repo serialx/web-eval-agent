@@ -46,7 +46,7 @@ Evaluate my app at http://localhost:3000 – run web_eval_agent with the task "T
  - brew: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
  - npm: (`brew install npm`)
  - jq: `brew install jq` 
-2. Run the installer after [getting an api key (free)](https://www.operative.sh/mcp)
+2. Run the installer:
    - Installs [playwright](https://github.com/microsoft/playwright) 
    - [Installs uv](https://astral.sh/)
    - Inserts JSON into your code editor (Cursor/Cline/Windsurf) for you! 
@@ -60,7 +60,7 @@ Test my app on http://localhost:3000. Use web-eval-agent.
 ```
 
 ## 🛠️ Manual Installation
-1. Get your API key at operative.sh/mcp
+1. Ensure you have an Anthropic API key set as `ANTHROPIC_API_KEY` environment variable
 2. [Install uv](https://docs.astral.sh/uv/#highlights)
 
 ```bash
@@ -83,7 +83,7 @@ source ~/.bashrc
 ```bash
 npm install -g chromium playwright && uvx --with playwright playwright install --with-deps
 ```
-5. Add below JSON to your relevant code editor with api key 
+5. Add below JSON to your relevant code editor
 6. Restart your code editor
    
 ## 🔃 Updating 
@@ -99,16 +99,13 @@ npm install -g chromium playwright && uvx --with playwright playwright install -
         "--from",
         "git+https://github.com/Operative-Sh/web-eval-agent.git",
         "webEvalAgent"
-      ],
-      "env": {
-        "OPERATIVE_API_KEY": "<YOUR_KEY>"
-      }
+      ]
     }
 ```
 ## [Operative Discord Server](https://discord.gg/ryjCnf9myb)
 
 ## 🛠️ Manual Installation (Mac + Cursor/Cline/Windsurf) 
-1. Get your API key at operative.sh/mcp
+1. Ensure you have an Anthropic API key set as `ANTHROPIC_API_KEY` environment variable
 2. [Install uv](https://docs.astral.sh/uv/#highlights)
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh)
@@ -117,7 +114,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh)
 ```bash
 npm install -g chromium playwright && uvx --with playwright playwright install --with-deps
 ```
-4. Add below JSON to your relevant code editor with api key 
+4. Add below JSON to your relevant code editor
 5. Restart your code editor
 
 ## Manual Installation (Windows + Cursor/Cline/Windsurf)  
@@ -125,7 +122,7 @@ npm install -g chromium playwright && uvx --with playwright playwright install -
 We're refining this, please open an issue if you have any issues! 
 1. Do all this in your code editor terminal 
 2. `curl -LSf https://operative.sh/install.sh -o install.sh && bash install.sh && rm install.sh`
-3. Get your API key at operative.sh/mcp
+3. Ensure you have an Anthropic API key set as `ANTHROPIC_API_KEY` environment variable
 4. Install uv `(curl -LsSf https://astral.sh/uv/install.sh | sh)`
 5. `uvx --from git+https://github.com/Operative-Sh/web-eval-agent.git playwright install`
 6. Restart code editor 

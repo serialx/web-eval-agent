@@ -42,8 +42,8 @@ RUN playwright install-deps
 # Copy application code
 COPY . .
 
-# Set environment variable for API key (should be overridden at runtime)
-ENV OPERATIVE_API_KEY="your_api_key_here"
+# Set environment variable for Anthropic API key (should be overridden at runtime)
+ENV ANTHROPIC_API_KEY=""
 
 # Run the MCP server
 CMD ["python", "mcp_server.py"]
