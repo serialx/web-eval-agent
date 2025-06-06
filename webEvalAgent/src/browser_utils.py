@@ -1105,7 +1105,7 @@ async def run_browser_task(
 
         # --- LLM Setup ---
         llm = ChatAnthropic(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-sonnet-4-0",
         )
         send_log(
             f"LLM ({llm.model}) configured.", "🤖", log_type="status"
